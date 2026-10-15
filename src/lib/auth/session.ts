@@ -1,17 +1,30 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { describeDevice } from "@/lib/auth/device";
 
 const COOKIE = "session";
 const TTL_MS = 30 * 86_400_000;
 const sha = (t: string) => createHash("sha256").update(t).digest("hex");
 
+/** The label for the device making this request, from its User-Agent. */
+export async function currentDevice(): Promise<string> {
+  return describeDevice((await headers()).get("user-agent"));
+}
+
+/** Distinct device labels this account has signed in from (expired sessions included, which is what "used before" means). */
+export async function knownDevices(userId: string): Promise<string[]> {
+  const rows = await db.session.findMany({ where: { userId, device: { not: null } }, select: { device: true }, distinct: ["device"], take: 100 });
+  return rows.map((r) => r.device).filter((d): d is string => d !== null);
+}
+
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + TTL_MS);
-  await db.session.create({ data: { userId, tokenHash: sha(token), expiresAt } });
+  const device = await currentDevice();
+  await db.session.create({ data: { userId, tokenHash: sha(token), expiresAt, device } });
   (await cookies()).set(COOKIE, token, {
     httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: expiresAt,
   });

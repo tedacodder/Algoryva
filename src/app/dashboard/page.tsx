@@ -9,6 +9,7 @@ import { readMinutes, topicStates } from "@/lib/topic-state";
 import { isComplete } from "@/content/lessons-v2";
 import { reviewTopic } from "@/app/actions";
 import { resendVerification } from "@/app/auth-actions";
+import { SimpleForm } from "@/components/SimpleForm";
 import { getStreak, getWeekActivity } from "@/lib/activity";
 import { getStats } from "@/lib/stats";
 import { computeXp, levelFor } from "@/lib/gamification";
@@ -41,7 +42,7 @@ export default async function Dashboard() {
       {!user.onboarded && <Callout title="Finish setup"><Link className="font-semibold text-brand underline" href="/onboarding">Tell us your experience</Link> and we will skip the material you already know.</Callout>}
       {!user.emailVerifiedAt && (
         <Callout tone="warn" title="Verify your email">
-          <form action={resendVerification} className="flex flex-wrap items-center gap-3"><span>You need a verified address to recover your account.</span><SubmitButton className="btn btn-secondary btn-sm" pendingLabel="Sending">Send verification email</SubmitButton></form>
+          <div className="space-y-3"><p>Confirm your address so you can recover your account if you ever forget your password. Check your spam folder if the email is missing.</p><SimpleForm action={resendVerification} fields={[]} submitLabel="Resend verification email" /></div>
         </Callout>
       )}
 

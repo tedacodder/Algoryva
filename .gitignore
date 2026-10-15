@@ -4,10 +4,8 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 
-# Playwright output
-test-results/
-playwright-report/
-
 # Local env files (keep the template)
 .env*
 !.env.example
+.vercel/
+test-results/
