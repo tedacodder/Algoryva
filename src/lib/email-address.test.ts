@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { brevoBody, parseFrom } from "./email-address";
+import { brevoBody, maskEmail, parseFrom } from "./email-address";
 
 describe("parseFrom", () => {
   it("splits a display name and address", () => {
@@ -22,5 +22,17 @@ describe("brevoBody", () => {
       textContent: "plain",
       htmlContent: "<p>html</p>",
     });
+  });
+});
+
+describe("maskEmail", () => {
+  it("keeps the first and last character of the name and the whole domain", () => {
+    expect(maskEmail("tedacodder@gmail.com")).toBe("t" + "*".repeat(8) + "r@gmail.com");
+  });
+  it("masks very short names without leaking them", () => {
+    expect(maskEmail("ab@x.io")).toBe("a*@x.io");
+  });
+  it("does not echo input that is not an address", () => {
+    expect(maskEmail("nope")).toBe("your email address");
   });
 });

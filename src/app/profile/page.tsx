@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requireUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getStreak, getWeekActivity } from "@/lib/activity";
@@ -28,6 +29,7 @@ export default async function Profile() {
   return (
     <div className="page space-y-6">
       <header className="card card-pad flex flex-wrap items-center gap-6">
+        <Link href="/account" className="btn btn-secondary btn-sm ml-auto">Account settings</Link>
         <Ring value={lv.needed ? lv.into / lv.needed : 0} size={104} stroke={9}><span className="text-center"><span className="block text-xs font-semibold text-muted">Level</span><span className="tnum block text-3xl font-extrabold leading-none">{lv.level}</span></span></Ring>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-3xl font-extrabold sm:text-4xl">{user.username}</h1>

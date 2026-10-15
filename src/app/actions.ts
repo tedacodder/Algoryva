@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { createSession, destroySession, requireUser } from "@/lib/auth/session";
+import { createSession, currentDevice, destroySession, knownDevices, requireUser } from "@/lib/auth/session";
+import { classifyDevice } from "@/lib/auth/device";
+import { sendNewSignInEmail } from "@/lib/auth/account-mail";
 import { completeReview, completeTopic } from "@/lib/progress";
 import { HOUR, anyBlocked, recordAll, trustedClientIp, type Limit } from "@/lib/rate-limit";
-import { createToken } from "@/lib/auth/tokens";
-import { sendEmail } from "@/lib/mailer";
+import { sendVerificationEmail } from "@/lib/auth/account-mail";
 import { parseLogin, parseRegister } from "@/lib/auth/validation";
 
 export type FormState = { error?: string } | undefined;
@@ -25,12 +26,10 @@ export async function register(_: FormState, form: FormData): Promise<FormState>
   const taken = await db.user.findFirst({ where: { OR: [{ email }, { username }] }, select: { id: true } });
   if (taken) return { error: "That email or username is already in use." };
   const user = await db.user.create({ data: { email, username, passwordHash: await hashPassword(password) } });
-  try {
-    const token = await createToken(user.id, "verify", 24 * HOUR);
-    await sendEmail(email, "Verify your Algoryva email", `Confirm your email address to finish setting up Algoryva:\n${process.env.SITE_URL ?? "http://localhost:3000"}/verify-email?token=${token}`);
-  } catch { /* verification can be resent from the dashboard */ }
+  const sent = await sendVerificationEmail(user.id, email);
   await createSession(user.id);
-  redirect("/onboarding");
+  // Show the "check your inbox" step. If the send failed, say so there, and offer a resend.
+  redirect(sent ? "/check-email" : "/check-email?sent=0");
 }
 
 // Same message for unknown email and wrong password to avoid account enumeration.
@@ -46,7 +45,11 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
   if (!user) await hashPassword(parsed.value.password); // keep timing similar for unknown emails
   const ok = user && !user.suspended && (await verifyPassword(parsed.value.password, user.passwordHash));
   if (!user || !ok) { await recordAll(limits.map((l) => l.key)); return { error: "Invalid email or password." }; }
+  const device = await currentDevice();
+  const status = classifyDevice(await knownDevices(user.id), device);
   await createSession(user.id);
+  // Warn the owner about a sign-in from a device this account has not used before. Failure to send never blocks login.
+  if (status === "new") await sendNewSignInEmail(user.email, device);
   redirect("/learn");
 }
 
