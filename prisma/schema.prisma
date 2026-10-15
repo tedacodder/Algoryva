@@ -91,6 +91,7 @@ model User {
   experience   String?
   onboarded    Boolean @default(false)
   emailVerifiedAt DateTime?
+  pendingEmail String?
   tokens       VerificationToken[]
   contestEntries ContestEntry[]
   quizResults  QuizResult[]
@@ -101,6 +102,7 @@ model Session {
   userId    String
   tokenHash String   @unique
   expiresAt DateTime
+  device    String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
