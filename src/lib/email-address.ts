@@ -19,3 +19,13 @@ export function maskEmail(email: string): string {
   const masked = local.length <= 2 ? `${local[0]}*` : `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}`;
   return `${masked}@${domain}`;
 }
+
+/**
+ * Cleans a value read from an environment variable. Copy-paste into Vercel often adds quotes, spaces or a line break,
+ * and a key with those characters is rejected as unknown. Returns undefined for an empty value.
+ */
+export function cleanEnvValue(v: string | undefined): string | undefined {
+  if (v === undefined) return undefined;
+  const t = v.trim().replace(/^(["'])([\s\S]*)\1$/, "$2").trim();
+  return t === "" ? undefined : t;
+}

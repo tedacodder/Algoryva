@@ -1,5 +1,5 @@
 import "server-only";
-import { brevoBody } from "@/lib/email-address";
+import { brevoBody, cleanEnvValue } from "@/lib/email-address";
 import type { Message } from "@/lib/email-templates";
 
 /**
@@ -9,7 +9,8 @@ import type { Message } from "@/lib/email-templates";
  * because the message contains live links; it logs a configuration error and returns false.
  */
 export async function sendEmail(to: string, msg: Message): Promise<boolean> {
-  const resendKey = process.env.RESEND_API_KEY, brevoKey = process.env.BREVO_API_KEY, from = process.env.EMAIL_FROM;
+  const rawBrevo = process.env.BREVO_API_KEY;
+  const resendKey = cleanEnvValue(process.env.RESEND_API_KEY), brevoKey = cleanEnvValue(rawBrevo), from = cleanEnvValue(process.env.EMAIL_FROM);
   if (!from || (!resendKey && !brevoKey)) {
     if (process.env.NODE_ENV !== "production") {
       console.log(`[email not sent: no provider configured]\nTo: ${to}\nSubject: ${msg.subject}\n${msg.text}\n`);
@@ -33,7 +34,9 @@ export async function sendEmail(to: string, msg: Message): Promise<boolean> {
     if (res.ok) return true;
     // The provider's error body names the problem (for example an unverified sender); it never contains our API key.
     const detail = (await res.text().catch(() => "")).slice(0, 300);
-    console.error(`[email] provider rejected the message (HTTP ${res.status}): ${detail}`);
+    // Length and the first 8 characters only (always "xkeysib-" for a real key), so a padded or wrong value is visible.
+    const keyInfo = brevoKey && !resendKey && rawBrevo !== undefined ? ` [brevo key as stored: ${rawBrevo.length} chars, starts "${rawBrevo.slice(0, 8)}"]` : "";
+    console.error(`[email] provider rejected the message (HTTP ${res.status}): ${detail}${keyInfo}`);
     return false;
   } catch (e) {
     console.error("[email] send failed:", (e as Error).message);

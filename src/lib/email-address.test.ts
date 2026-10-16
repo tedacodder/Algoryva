@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { brevoBody, maskEmail, parseFrom } from "./email-address";
+import { brevoBody, cleanEnvValue, maskEmail, parseFrom } from "./email-address";
 
 describe("parseFrom", () => {
   it("splits a display name and address", () => {
@@ -34,5 +34,22 @@ describe("maskEmail", () => {
   });
   it("does not echo input that is not an address", () => {
     expect(maskEmail("nope")).toBe("your email address");
+  });
+});
+
+describe("cleanEnvValue", () => {
+  it("removes surrounding quotes, spaces and line breaks that paste can add", () => {
+    expect(cleanEnvValue('"xkeysib-abc"')).toBe("xkeysib-abc");
+    expect(cleanEnvValue("  xkeysib-abc\n")).toBe("xkeysib-abc");
+    expect(cleanEnvValue("'xkeysib-abc'\r\n")).toBe("xkeysib-abc");
+  });
+  it("keeps a value that is already clean, and quotes that are part of it", () => {
+    expect(cleanEnvValue("xkeysib-abc")).toBe("xkeysib-abc");
+    expect(cleanEnvValue('Algoryva <a@b.co>')).toBe("Algoryva <a@b.co>");
+  });
+  it("treats empty or missing values as not set", () => {
+    expect(cleanEnvValue(undefined)).toBeUndefined();
+    expect(cleanEnvValue("   ")).toBeUndefined();
+    expect(cleanEnvValue('""')).toBeUndefined();
   });
 });
