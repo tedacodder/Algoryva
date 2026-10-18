@@ -115,3 +115,19 @@ export function newSignInEmail(base: string, device: string, when: string): Mess
     footnote: "You are receiving this because this device has not signed in to your account before.",
   });
 }
+
+export function revisitDigestEmail(base: string, titles: string[], more: number): Message {
+  const total = titles.length + more;
+  const count = total === 1 ? "1 problem" : `${total} problems`;
+  const lines = titles.map((t) => `• ${t}`);
+  if (more > 0) lines.push(`…and ${more} more`);
+  return renderEmail({
+    base,
+    subject: `${count} to solve again without help`,
+    preheader: "Solve them on your own. They count as passed once you do.",
+    heading: "Time to try these again",
+    paragraphs: ["You solved these after looking at the editorial or a hint. Solve them again on your own to pass the review.", ...lines],
+    cta: { label: "Open my revisits", url: `${base}/revisits` },
+    footnote: "You are receiving this because problems are due for review. You can turn these emails off in Account settings.",
+  });
+}

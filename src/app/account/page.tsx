@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { cancelEmailChange, requestEmailChange } from "@/app/account-actions";
+import { cancelEmailChange, requestEmailChange, setRevisitEmails } from "@/app/account-actions";
 import { resendVerification } from "@/app/auth-actions";
 import { requireUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
   const user = await requireUser();
-  const row = await db.user.findUnique({ where: { id: user.id }, select: { email: true, pendingEmail: true, emailVerifiedAt: true } });
+  const row = await db.user.findUnique({ where: { id: user.id }, select: { email: true, pendingEmail: true, emailVerifiedAt: true, revisitEmails: true } });
   if (!row) redirect("/login");
 
   return (
@@ -65,6 +65,18 @@ export default async function AccountPage() {
           ]}
           submitLabel="Send confirmation link"
         />
+      </section>
+
+      <section aria-labelledby="reminders" className="card card-pad space-y-4">
+        <h2 id="reminders" className="text-lg font-bold">Revisit reminders</h2>
+        <p className="text-sm text-soft">At most one email a day, and only when problems are due for review.</p>
+        <form action={setRevisitEmails} className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="on" defaultChecked={row.revisitEmails} className="h-4 w-4" />
+            Email me revisit reminders
+          </label>
+          <SubmitButton className="btn btn-secondary btn-sm" pendingLabel="Saving">Save</SubmitButton>
+        </form>
       </section>
     </div>
   );
