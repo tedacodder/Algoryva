@@ -1,3 +1,4 @@
+import { problemDetail } from "@/lib/content";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,10 +16,7 @@ import { Icon } from "@/components/Icon";
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ slug: string }> };
 
-const load = (slug: string) => db.problem.findFirst({
-  where: { slug, status: "PUBLISHED" },
-  include: { topics: { select: { topic: { select: { slug: true, title: true } } } }, testCases: { where: { isSample: true }, orderBy: { id: "asc" } } },
-});
+const load = (slug: string) => problemDetail(slug);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: (await load((await params).slug))?.title ?? "Problem" };

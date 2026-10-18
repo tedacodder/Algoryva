@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { invalidateContent } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/session";
 import { bySlug } from "@/lib/curriculum";
@@ -28,6 +29,7 @@ export async function saveLesson(_: SaveState, form: FormData): Promise<SaveStat
     await tx.lessonSection.create({ data: { lessonId: lesson.id, kind: "markdown", body: md, position: 0 } });
   });
   revalidatePath(`/learn/${slug}`);
+  await invalidateContent();
   redirect("/admin/lessons");
 }
 
@@ -36,6 +38,7 @@ export async function revertLesson(form: FormData) {
   const slug = String(form.get("slug") ?? "");
   await db.lesson.deleteMany({ where: { slug: "main", topic: { slug } } });
   revalidatePath(`/learn/${slug}`); revalidatePath("/admin/lessons");
+  await invalidateContent();
 }
 
 /** Publish or unpublish a custom lesson without opening the editor. A lesson with no sections cannot be published. */
@@ -48,5 +51,7 @@ export async function setLessonStatus(form: FormData) {
   if (!row || row.sections.length === 0) return;
   await db.lesson.update({ where: { id: row.id }, data: { status } });
   revalidatePath(`/learn/${slug}`);
+  await invalidateContent();
   revalidatePath("/admin/lessons");
+  await invalidateContent();
 }

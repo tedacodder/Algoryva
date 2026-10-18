@@ -1,3 +1,4 @@
+import { customLesson, topicPractice } from "@/lib/content";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -54,7 +55,7 @@ export default async function TopicPage({ params }: Props) {
   if (!topic) notFound();
   // A published admin lesson replaces the built-in text for every topic, including full lessons.
   const builtin = LESSONS_V2[topic.slug];
-  const custom = await db.lesson.findFirst({ where: { slug: "main", status: "PUBLISHED", topic: { slug: topic.slug } }, select: { sections: { orderBy: { position: "asc" }, take: 1, select: { body: true } } } });
+  const custom = await customLesson(topic.slug);
   const v2 = custom?.sections[0] ? undefined : builtin;
   const blocks = v2 ? undefined : custom?.sections[0] ? parseLessonMarkdown(custom.sections[0].body) : LESSONS[topic.slug]?.blocks;
   const viz = !v2 && blocks ? vizFor(topic.slug) : null;
@@ -62,7 +63,7 @@ export default async function TopicPage({ params }: Props) {
   const completed = user ? await getCompletedSlugs(user.id) : new Set<string>();
   const states = topicStates(completed, !user);
   const state = unlockState(topic.slug, completed);
-  const practice = topic.status === "PUBLISHED" ? await db.problem.findMany({ where: { status: "PUBLISHED", topics: { some: { topic: { slug: topic.slug } } } }, orderBy: [{ kind: "desc" }, { position: "asc" }], take: 60, select: { id: true, slug: true, title: true, kind: true, difficulty: true, source: true, externalUrl: true } }) : [];
+  const practice = topic.status === "PUBLISHED" ? await topicPractice(topic.slug) : [];
   const [quiz, solvedRows, review] = user && topic.status === "PUBLISHED" ? await Promise.all([
     db.quizResult.findFirst({ where: { userId: user.id, topic: { slug: topic.slug } }, select: { passedAt: true, bestScore: true, total: true } }),
     db.problemSolve.findMany({ where: { userId: user.id, problemId: { in: practice.map((p) => p.id) } }, select: { problemId: true } }),
