@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { passwordChangedEmail, passwordResetEmail, renderEmail, verificationEmail } from "./email-templates";
+import { passwordChangedEmail, passwordResetEmail, renderEmail, revisitDigestEmail, verificationEmail } from "./email-templates";
 
 const BASE = "https://algoryva.vercel.app";
 
@@ -51,5 +51,23 @@ describe("renderEmail", () => {
   it("uses the logo image when the site is https", () => {
     const m = renderEmail({ base: BASE, subject: "s", preheader: "p", heading: "h", paragraphs: [], footnote: "f" });
     expect(m.html).toContain(`${BASE}/brand/algoryva-lockup-email.png`);
+  });
+});
+
+describe("revisitDigestEmail", () => {
+  it("names the count, lists the problems, and links to the revisits page", () => {
+    const m = revisitDigestEmail(BASE, ["Two Sum", "Binary Search"], 0);
+    expect(m.subject).toBe("2 problems to solve again without help");
+    expect(m.text).toContain("• Two Sum");
+    expect(m.text).toContain(`${BASE}/revisits`);
+  });
+  it("uses the singular and mentions problems that are not listed", () => {
+    expect(revisitDigestEmail(BASE, ["Two Sum"], 0).subject).toBe("1 problem to solve again without help");
+    expect(revisitDigestEmail(BASE, ["P1"], 4).text).toContain("…and 4 more");
+  });
+  it("escapes problem titles", () => {
+    const m = revisitDigestEmail(BASE, ["<img src=x>"], 0);
+    expect(m.html).not.toContain("<img src=x>");
+    expect(m.html).toContain("&lt;img");
   });
 });

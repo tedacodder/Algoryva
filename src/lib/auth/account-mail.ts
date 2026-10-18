@@ -3,7 +3,7 @@ import { siteUrl } from "@/lib/brand";
 import { createToken } from "@/lib/auth/tokens";
 import { HOUR } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/mailer";
-import { emailChangeNoticeEmail, emailChangeVerifyEmail, newSignInEmail, passwordChangedEmail, passwordResetEmail, verificationEmail } from "@/lib/email-templates";
+import { emailChangeNoticeEmail, emailChangeVerifyEmail, newSignInEmail, passwordChangedEmail, passwordResetEmail, revisitDigestEmail, verificationEmail } from "@/lib/email-templates";
 import { maskEmail } from "@/lib/email-address";
 
 /*
@@ -53,4 +53,8 @@ export async function sendEmailChangeNotice(oldEmail: string, newEmail: string):
 
 export async function sendNewSignInEmail(email: string, device: string): Promise<boolean> {
   return sendEmail(email, newSignInEmail(siteUrl(), device, new Date().toUTCString()));
+}
+
+export async function sendRevisitDigest(email: string, titles: string[], more: number): Promise<boolean> {
+  return sendEmail(email, revisitDigestEmail(siteUrl(), titles, more));
 }

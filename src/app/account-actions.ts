@@ -6,6 +6,7 @@ import { verifyPassword } from "@/lib/auth/password";
 import { normalizeEmail } from "@/lib/auth/validation";
 import { sendEmailChangeNotice, sendEmailChangeVerification } from "@/lib/auth/account-mail";
 import { maskEmail } from "@/lib/email-address";
+import { setRevisitEmails as saveRevisitEmails } from "@/lib/revisit-store";
 import { HOUR, isBlocked, record } from "@/lib/rate-limit";
 import type { AuthState } from "@/app/auth-actions";
 
@@ -41,5 +42,12 @@ export async function requestEmailChange(_: AuthState, form: FormData): Promise<
 export async function cancelEmailChange(): Promise<void> {
   const user = await requireUser();
   await db.user.update({ where: { id: user.id }, data: { pendingEmail: null } });
+  revalidatePath("/account");
+}
+
+/** Turns the daily revisit reminder email on or off. */
+export async function setRevisitEmails(form: FormData): Promise<void> {
+  const user = await requireUser();
+  await saveRevisitEmails(user.id, form.get("on") === "on");
   revalidatePath("/account");
 }

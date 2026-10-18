@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   record: vi.fn(),
 }));
 
+vi.mock("@/lib/revisit-store", () => ({ passRevisit: vi.fn(async () => {}), scheduleRevisit: vi.fn(async () => {}) }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({
   db: {

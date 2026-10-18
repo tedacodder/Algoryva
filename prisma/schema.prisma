@@ -92,6 +92,9 @@ model User {
   onboarded    Boolean @default(false)
   emailVerifiedAt DateTime?
   pendingEmail String?
+  revisitEmails    Boolean @default(true)
+  revisitEmailedAt DateTime?
+  revisits         Revisit[]
   tokens       VerificationToken[]
   contestEntries ContestEntry[]
   quizResults  QuizResult[]
@@ -180,6 +183,7 @@ model Problem {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt
   solves     ProblemSolve[]
+  revisits   Revisit[]
   contests   ContestProblem[]
   topics     ProblemTopic[]
   testCases  TestCase[]
@@ -386,4 +390,25 @@ model QuizResult {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   topic     Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
   @@id([userId, topicId])
+}
+
+model Revisit {
+  id           String    @id @default(cuid())
+  userId       String
+  problemId    String?   // set for a problem on this site (judge-graded)
+  outsideTitle String?   // set for a problem outside the site (self-reported)
+  outsideUrl   String?
+  outsideKey   String?   // normalised link or title, so the same outside problem is queued once
+  dueAt        DateTime? // null = no more reminders (passed, or the last reminder was sent)
+  step         Int       @default(0) // reminders sent so far
+  passedAt     DateTime?
+  passedBy     String?   // "judge" (verified on this site) or "self" (outside problem)
+  note         String?   // the explanation an outside problem requires
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem      Problem?  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  @@unique([userId, problemId])
+  @@unique([userId, outsideKey])
+  @@index([userId, dueAt])
 }
