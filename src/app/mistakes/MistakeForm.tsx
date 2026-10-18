@@ -10,6 +10,7 @@ export function MistakeForm({ problems, defaultProblemId }: { problems: { id: st
   return (
     <form action={action} className="space-y-4">
       <label className="block"><span className="label">Problem (optional)</span><select name="problemId" defaultValue={defaultProblemId ?? ""} className="input"><option value="">None</option>{problems.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label>
+      <p className="text-xs text-muted">A mistake on a problem comes back for a solve-again review tomorrow, whatever the reason.</p>
       <fieldset className="space-y-3 rounded-xl border border-line p-3">
         <legend className="px-1 text-sm font-bold">Or a problem outside this site</legend>
         <p className="text-xs text-muted">Use this for LeetCode or any other problem that is not in the list above. Leave the list empty when you use it.</p>

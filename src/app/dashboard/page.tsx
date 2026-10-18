@@ -18,6 +18,7 @@ import { Difficulty, KindBadge } from "@/components/ProblemBadge";
 import { SolvedCheckbox } from "@/components/SolvedCheckbox";
 import { LessonTree } from "@/components/LessonTree";
 import { Callout, EmptyState, ProgressBar, Ring } from "@/components/ui";
+import { RevisitCard } from "@/components/revisits/RevisitCard";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Icon } from "@/components/Icon";
 
@@ -45,6 +46,8 @@ export default async function Dashboard() {
           <div className="space-y-3"><p>Confirm your address so you can recover your account if you ever forget your password. Check your spam folder if the email is missing.</p><SimpleForm action={resendVerification} fields={[]} submitLabel="Resend verification email" /></div>
         </Callout>
       )}
+
+      <RevisitCard userId={user.id} />
 
       <header>
         <p className="text-sm font-semibold text-muted">{hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"}, {user.username}</p>

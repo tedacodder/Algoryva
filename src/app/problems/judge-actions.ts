@@ -6,6 +6,7 @@ import { gradeOutput } from "@/lib/judge";
 import { contestState } from "@/lib/contests";
 import { HOUR, isBlocked, record } from "@/lib/rate-limit";
 import { awardContestSolve, awardSolve } from "@/lib/solve";
+import { passRevisit } from "@/lib/revisit-store";
 
 /** Only public samples carry input, expected and actual. Hidden tests return just the verdict. */
 export type CheckResult = { isSample: boolean; pass: boolean; input?: string; expected?: string; actual?: string };
@@ -48,6 +49,8 @@ export async function checkOutput(_: CheckState, form: FormData): Promise<CheckS
   }
 
   // Only a verified pass (every server-side test matched) awards a solve. Awards are idempotent, see lib/solve.ts.
+  // A verified full match also passes a revisit that is already due. Only the judge can pass one, never a self-report.
+  await passRevisit(user.id, problem.id, new Date());
   if (contestId) {
     const c = await db.contest.findFirst({ where: { id: contestId, status: "PUBLISHED" }, select: { durationMin: true } });
     if (!c) return { results, allPass, note: "Contest not found, so this pass was not counted." };
