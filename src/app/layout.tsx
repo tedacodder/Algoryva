@@ -3,6 +3,7 @@ import "./globals.css";
 import { getCurrentUser } from "@/lib/auth/session";
 import { logout } from "@/app/actions";
 import { Shell } from "@/components/shell/Shell";
+import { PwaRegister } from "@/components/PwaRegister";
 import { BRAND, siteUrl } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} /></head>
       <body>
+        <PwaRegister />
         <Shell user={user ? { username: user.username, role: user.role } : null} logout={logout}>{children}</Shell>
       </body>
     </html>

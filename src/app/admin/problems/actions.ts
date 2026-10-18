@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { invalidateContent } from "@/lib/cache";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/session";
 import { parseProblem } from "@/lib/problem-validation";
@@ -47,6 +48,7 @@ export async function saveProblem(_: SaveState, form: FormData): Promise<SaveSta
     return { error: "Could not save. The title may already be used by another problem." };
   }
   revalidatePath("/problems", "layout");
+  await invalidateContent();
   redirect("/admin/problems");
 }
 
@@ -54,10 +56,12 @@ export async function setPublished(form: FormData) {
   await requireAdmin();
   await db.problem.update({ where: { id: String(form.get("id") ?? "") }, data: { status: form.get("publish") === "1" ? "PUBLISHED" : "DRAFT" } });
   revalidatePath("/problems", "layout"); revalidatePath("/admin/problems");
+  await invalidateContent();
 }
 
 export async function deleteProblem(form: FormData) {
   await requireAdmin();
   await db.problem.delete({ where: { id: String(form.get("id") ?? "") } });
   revalidatePath("/problems", "layout"); revalidatePath("/admin/problems");
+  await invalidateContent();
 }
