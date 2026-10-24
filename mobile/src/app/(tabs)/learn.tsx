@@ -117,7 +117,7 @@ export default function CurriculumTab() {
                   </View>
                 </View>
               );
-              if (!available || state === "locked") {
+              if (!available) {
                 return <View key={t.slug} accessibilityLabel={`${t.title}, ${STATE_LABEL[state]}`}>{body}</View>;
               }
               return (

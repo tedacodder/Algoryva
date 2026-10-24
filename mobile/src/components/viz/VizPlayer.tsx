@@ -17,10 +17,11 @@ export function VizPlayer({ viz, onIndexChange }: { viz: VizView; onIndexChange?
   const total = viz.frames.length;
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [shown, setShown] = useState(viz);
-  if (shown !== viz) {
-    // A new visualization starts from its first frame. Adjusting state during render avoids an extra render pass.
-    setShown(viz);
+  // The same visualization can arrive as a new object on every render. Reset only when its contents change.
+  const key = vizKey(viz);
+  const [shownKey, setShownKey] = useState(key);
+  if (shownKey !== key) {
+    setShownKey(key);
     setI(0);
     setPlaying(false);
   }
@@ -99,6 +100,11 @@ function renderStage(viz: VizView, index: number, muted: object) {
       return f ? <GridStage f={f} /> : <Text style={muted}>No frames to show.</Text>;
     }
   }
+}
+
+/** Identifies a visualization by its kind, title and length, so an equal copy is recognised as the same one. */
+export function vizKey(viz: VizView): string {
+  return `${viz.kind}|${viz.title}|${viz.frames.length}`;
 }
 
 function frameNote(viz: VizView, index: number): string {

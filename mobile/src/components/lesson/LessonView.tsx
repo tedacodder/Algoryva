@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { ContentLesson, LessonSection, QuizQuestion } from "../../lib/api/types";
 import { vizById } from "../../lib/viz";
@@ -111,7 +111,7 @@ function LessonBody({ lesson, progressState }: { lesson: Extract<ContentLesson, 
         <Bullets items={lesson.summary} />
       </Card>
 
-      {lesson.checks.length > 0 ? <Quiz questions={lesson.checks} progress={progressState?.progress ?? null} onSubmit={progressState?.onQuiz} /> : null}
+      {lesson.checks.length > 0 ? <Quiz questions={lesson.checks} progress={progressState?.progress ?? null} onSubmit={progressState?.onQuiz} readOnly={progressState?.locked === true} /> : null}
 
       {lesson.nextNote ? <Inline text={lesson.nextNote} /> : null}
 
@@ -160,6 +160,7 @@ function ProgressCard({ state }: { state: LessonProgressProps }) {
 
 function SectionView({ section: sec }: { section: LessonSection }) {
   const { c, s } = useStyles();
+  const viz = useMemo(() => (sec.kind === "viz" ? vizById(sec.viz ?? "") : null), [sec]);
   const body = (
     <>
       <SectionHead icon={headIcon(sec.kind)} label={headLabel(sec.kind)} tone={headTone(sec.kind)} title={sec.title} />
@@ -181,7 +182,6 @@ function SectionView({ section: sec }: { section: LessonSection }) {
         </View>
       );
     case "viz": {
-      const viz = vizById(sec.viz ?? "");
       return (
         <View style={s.section} accessibilityLabel={`Section: ${sec.title}`}>
           <SectionHead icon="play" label="See it move" title={sec.title} />
@@ -359,7 +359,7 @@ function headTone(kind: LessonSection["kind"]): "brand" | "warn" | "ok" | "muted
  * The quiz, as on the website: every question is answered in place. Each answer is marked right or wrong straight away, with its
  * explanation. When the last question is answered, the score is shown and the result is saved (queued for the server).
  */
-export function Quiz({ questions, progress, onSubmit }: { questions: QuizQuestion[]; progress: TopicProgress | null; onSubmit?: (answers: number[]) => void }) {
+export function Quiz({ questions, progress, onSubmit, readOnly = false }: { questions: QuizQuestion[]; progress: TopicProgress | null; onSubmit?: (answers: number[]) => void; readOnly?: boolean }) {
   const { c, s } = useStyles();
   const [picked, setPicked] = useState<Record<number, number>>({});
   const answered = Object.keys(picked).length;
@@ -369,7 +369,7 @@ export function Quiz({ questions, progress, onSubmit }: { questions: QuizQuestio
   const passed = score >= need;
 
   const choose = (qi: number, oi: number) => {
-    if (picked[qi] !== undefined) return;
+    if (readOnly || picked[qi] !== undefined) return;
     const next = { ...picked, [qi]: oi };
     setPicked(next);
     if (Object.keys(next).length === questions.length) {

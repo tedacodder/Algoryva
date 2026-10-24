@@ -100,3 +100,16 @@ export async function loadAllQuizQuestions(db: SqlDb): Promise<{ topicSlug: stri
     return (lesson.checks ?? []).map((question) => ({ topicSlug: r.topic_slug, title: r.title ?? r.topic_slug, question }));
   });
 }
+
+/** Topic reviews that are scheduled but not due yet, soonest first. Shown so the Reviews tab is never empty without explanation. */
+export async function loadUpcomingTopicReviews(db: SqlDb, nowIso: string, limit = 20): Promise<DueTopicReview[]> {
+  const rows = await db.getAllAsync<{ topic_slug: string; title: string; review_step: number; review_due_at: string }>(
+    `SELECT p.topic_slug, t.title, p.review_step, p.review_due_at
+       FROM progress p JOIN topics t ON t.slug = p.topic_slug
+      WHERE p.review_step IS NOT NULL AND p.review_due_at IS NOT NULL AND p.review_due_at > ?
+      ORDER BY p.review_due_at
+      LIMIT ?`,
+    [nowIso, limit],
+  );
+  return rows.map((r) => ({ slug: r.topic_slug, title: r.title, step: r.review_step, dueAt: r.review_due_at }));
+}

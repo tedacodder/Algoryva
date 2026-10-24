@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FlatList, Linking, Text, View } from "react-native";
 import { router } from "expo-router";
 import { getDatabase } from "../../lib/db/open";
-import { loadDueRevisits, loadDueTopicReviews, type DueRevisit, type DueTopicReview } from "../../lib/learner/queries";
+import { loadDueRevisits, loadDueTopicReviews, loadUpcomingTopicReviews, type DueRevisit, type DueTopicReview } from "../../lib/learner/queries";
 import { useLoad } from "../../lib/hooks/useLoad";
 import { learner } from "../../lib/sync/runtime";
 import { NOTE_MAX, NOTE_MIN } from "../../lib/rules/schedule";
@@ -15,8 +15,8 @@ export default function RevisitsScreen() {
   const data = useLoad(async () => {
     const db = await getDatabase();
     const now = new Date().toISOString();
-    const [topics, revisits] = await Promise.all([loadDueTopicReviews(db, now), loadDueRevisits(db, now)]);
-    return { topics, revisits };
+    const [topics, revisits, upcoming] = await Promise.all([loadDueTopicReviews(db, now), loadDueRevisits(db, now), loadUpcomingTopicReviews(db, now)]);
+    return { topics, revisits, upcoming };
   }, "revisits");
   const rate = async (r: DueTopicReview, rating: "good" | "again") => {
     const res = await learner.reviewTopic(r.slug, rating);
@@ -45,7 +45,20 @@ export default function RevisitsScreen() {
       data={[...(data.data?.topics ?? []).map((t) => ({ kind: "topic" as const, ...t })), ...(data.data?.revisits ?? []).map((r) => ({ kind: "revisit" as const, ...r }))]}
       keyExtractor={(r) => (r.kind === "topic" ? `topic:${r.slug}` : `revisit:${r.id}`)}
       ListHeaderComponent={message ? <Notice text={message} /> : undefined}
-      ListEmptyComponent={<Empty text="Nothing is due for review right now." />}
+      ListEmptyComponent={<Empty title="Nothing is due yet" text="A topic comes back for review one day after you complete it, then after 3, 7, 14 and 30 days. Complete a topic and it will appear under Coming up." />}
+      ListFooterComponent={
+        (data.data?.upcoming ?? []).length > 0 ? (
+          <View style={{ gap: 8, marginTop: 8 }}>
+            <Text style={s.sectionTitle}>Coming up</Text>
+            {(data.data?.upcoming ?? []).map((u) => (
+              <View key={u.slug} style={s.upcoming} accessibilityLabel={`${u.title}, review on ${new Date(u.dueAt).toLocaleDateString()}`}>
+                <Text style={s.title}>{u.title}</Text>
+                <Text style={s.meta}>{`Review ${u.step + 1} on ${new Date(u.dueAt).toLocaleDateString()}`}</Text>
+              </View>
+            ))}
+          </View>
+        ) : undefined
+      }
       renderItem={({ item }) => {
         if (item.kind === "topic") {
           return (
@@ -97,5 +110,7 @@ const useStyles = makeStyles((c, f) => ({
   title: { color: c.fg, fontSize: 17, fontFamily: f.bold },
   link: { color: "#3A59E0", fontSize: 14 },
   meta: { color: c.muted, fontSize: 14, lineHeight: 20 },
+  sectionTitle: { color: c.fg, fontSize: 17, fontWeight: "700", marginTop: 4 },
+  upcoming: { backgroundColor: c.surface, borderRadius: 14, padding: 14, gap: 4 },
   form: { gap: 10 },
 }));

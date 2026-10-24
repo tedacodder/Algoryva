@@ -25,6 +25,7 @@ export default function AlgorithmScreen() {
   const [line, setLine] = useState<number | null>(null);
 
   const outcome = useMemo(() => (algo ? runAlgorithm(algo, submitted) : null), [algo, submitted]);
+  const view = useMemo(() => (outcome && outcome.ok && algo ? toView(outcome.gen, algo.title) : null), [outcome, algo]);
   const onIndexChange = useCallback((i: number) => {
     if (outcome?.ok) setLine(outcome.gen.frames[i]?.line ?? null);
   }, [outcome]);
@@ -80,9 +81,9 @@ export default function AlgorithmScreen() {
 
         {outcome && !outcome.ok ? (
           <Text style={s.error} accessibilityRole="alert">{outcome.error}</Text>
-        ) : outcome && outcome.ok ? (
+        ) : outcome && outcome.ok && view ? (
           <>
-            <VizPlayer viz={toView(outcome.gen, algo.title)} onIndexChange={onIndexChange} />
+            <VizPlayer viz={view} onIndexChange={onIndexChange} />
             {outcome.gen.result ? <P>{`Result: ${outcome.gen.result}`}</P> : null}
             <Card>
               <H level={3}>Pseudocode</H>

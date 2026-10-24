@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text } from "react-native";
+import { Linking, Pressable, ScrollView, Text } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { getDatabase } from "../../lib/db/open";
 import { loadProblem } from "../../lib/content/repository";
@@ -8,6 +8,8 @@ import { loadSubmissions, type SubmissionView } from "../../lib/judge/queue";
 import { learner, getRuntime } from "../../lib/sync/runtime";
 import { useLoad } from "../../lib/hooks/useLoad";
 import { Card, Code, H, P, Bullets } from "../../components/common/Ui";
+import { Button } from "../../components/common/Controls";
+import { isOpenableLink, platformOf } from "../../lib/practice/platform";
 import { AnswerForm } from "../../components/judge/AnswerForm";
 import { makeStyles, MIN_TOUCH } from "../../lib/ui/theme";
 
@@ -42,8 +44,17 @@ export default function ProblemScreen() {
 
         {p.kind === "EXTERNAL" ? (
           <Card>
-            <P>This problem is solved on an external site.</P>
-            {p.externalUrl ? <Text selectable style={s.link}>{p.externalUrl}</Text> : null}
+            <P>{platformOf(p.externalUrl) ? `This problem is on ${platformOf(p.externalUrl)!.name}. Open it there, solve it, then mark it solved here.` : "This problem is solved on an external site."}</P>
+            {isOpenableLink(p.externalUrl) ? (
+              <Button
+                label={`Open on ${platformOf(p.externalUrl)?.name ?? "the site"}`}
+                variant="primary"
+                icon="external"
+                hint="Opens the problem in your browser"
+                onPress={() => void Linking.openURL(p.externalUrl ?? "")}
+              />
+            ) : null}
+            {p.externalUrl && isOpenableLink(p.externalUrl) ? <Text selectable style={s.link}>{p.externalUrl}</Text> : null}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={problem.data.solved ? "Mark as not solved" : "Mark as solved"}
