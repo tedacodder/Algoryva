@@ -212,6 +212,7 @@ export default function Dashboard() {
 
       <Text style={[s.kicker, { marginTop: 4 }]}>Tools</Text>
       <View style={s.tools}>
+        <ToolTile icon="play" label="Visualizer" sub="Step through algorithms" href="/visualizer" />
         <ToolTile icon="note" label="Mistakes" sub={d.mistakes > 0 ? `${d.mistakes} logged` : "Log what went wrong"} href="/mistakes" />
         <ToolTile icon="edit" label="Notes" sub="Your notes" href="/notes" />
         <ToolTile icon="play" label="Python Runner" sub="Write and run Python offline" href="/python/runner" />

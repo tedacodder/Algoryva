@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { ApiError, NetworkError } from "../../lib/api/client";
 import { isSignedIn, subscribeSession } from "../../lib/auth/session";
@@ -10,6 +10,7 @@ import { makeStyles, MIN_TOUCH } from "../../lib/ui/theme";
 import { countPending } from "../../lib/learner/snapshot";
 import { getDatabase } from "../../lib/db/open";
 import { Card, H, P } from "../../components/common/Ui";
+import { Button } from "../../components/common/Controls";
 import type { AuthOutcome } from "../../lib/account/account";
 
 type Mode = "signin" | "register";
@@ -149,6 +150,15 @@ export default function AccountScreen() {
           </Card>
         </>
       )}
+      <Card>
+        <H level={2}>Tools</H>
+        <Button label="Visualizer" hint="Step through algorithms" onPress={() => router.push("/visualizer" as never)} />
+        <Button label="Python Runner" hint="Write and run Python on this phone" onPress={() => router.push("/python/runner" as never)} />
+        <Button label="Reviews" hint="Topic and problem reviews due" onPress={() => router.push("/reviews" as never)} />
+        <Button label="Mistakes" hint="Mistake notebook" onPress={() => router.push("/mistakes" as never)} />
+        <Button label="Notes" hint="Your notes" onPress={() => router.push("/notes" as never)} />
+        <Button label="Settings" hint="Appearance, privacy, data on this device" onPress={() => router.push("/settings" as never)} />
+      </Card>
     </ScrollView>
   );
 }

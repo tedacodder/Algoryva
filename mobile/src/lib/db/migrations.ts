@@ -138,6 +138,18 @@ export const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: 5,
+    name: "python-snippets",
+    sql: `
+      CREATE TABLE snippets (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        code TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `,
+  },
 ];
 
 /** Applies every migration that has not run yet, in version order. Returns the number applied in this call. */

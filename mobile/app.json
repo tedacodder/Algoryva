@@ -44,16 +44,6 @@
     ],
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "router": {
-        "asyncRoutes": {
-          "web": true
-        }
-      },
-      "eas": {
-        "projectId": "57ee7f8a-42c4-4498-bdcf-46c2f27e7778"
-      }
     }
   }
 }

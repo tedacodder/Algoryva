@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Linking, ScrollView, View } from "react-native";
+import { Linking, ScrollView, Share, View } from "react-native";
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import { isSignedIn } from "../../lib/auth/session";
@@ -45,6 +45,12 @@ export default function SettingsScreen() {
         <H level={2}>Privacy</H>
         <P>Read how your data is used, stored and deleted.</P>
         <Button label="Open the privacy policy" hint="Opens the policy in your browser" onPress={() => void Linking.openURL(`${API_BASE_URL}/privacy`)} />
+      </Card>
+
+      <Card>
+        <H level={2}>Share</H>
+        <P>Know someone who wants to learn algorithms? Send them the app.</P>
+        <Button label="Share Algoryva" onPress={() => void Share.share({ message: "Learn algorithms and Python with Algoryva: lessons, quizzes and a Python runner that works offline." })} />
       </Card>
 
       <Card>
