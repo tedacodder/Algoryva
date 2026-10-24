@@ -162,6 +162,10 @@ export const pythonBuiltins: LessonV2 = {
     { kind: "complexity", q: "Why is `sum(x * x for x in range(1000000))` friendlier to memory than `sum([x * x for x in range(1000000)])`?", options: ["It is not", "The generator makes one value at a time instead of building a million-item list", "It uses a faster algorithm", "Lists cannot be summed"], answer: 1, why: "The generator expression is lazy, so memory stays constant, while the list comprehension holds all values at once." },
     { kind: "recognize", q: "“Count how many of each letter appear in a string” suggests:", options: ["`Counter(s)`", "`sorted(s)`", "`zip(s, s)`", "`reversed(s)`"], answer: 0, why: "`Counter` is the built-in tool for counting occurrences." },
     { kind: "trace", q: "What does `round(8.5)` return in Python?", options: ["9", "8", "8.5", "10"], answer: 1, why: "Python rounds exact halves to the nearest even number, so 8.5 becomes 8 (and 7.5 becomes 8)." },
+    { kind: "trace", q: "What does `sorted([3, 1, 2], reverse=True)` return?", options: ["[3, 2, 1]", "[1, 2, 3]", "[2, 1, 3]", "[3, 1, 2]"], answer: 0, why: "sorted returns a new list; reverse=True sorts from largest to smallest." },
+    { kind: "trace", q: "What does `list(zip([1, 2], 'ab'))` give?", options: ["[(1, 'a'), (2, 'b')]", "[1, 2, 'a', 'b']", "[(1, 2), ('a', 'b')]", "It raises an error"], answer: 0, why: "zip pairs items from each iterable, stopping at the shorter one." },
+    { kind: "trace", q: "What does `list(map(str, [1, 2]))` give?", options: ["['1', '2']", "[1, 2]", "['a', 'b']", "['12']"], answer: 0, why: "map applies str to each number, turning 1 and 2 into text." },
+    { kind: "concept", q: "What does an `__init__` method do?", options: ["Runs when an object is created, to set its starting values", "Deletes an object", "Converts an object into text", "Makes a class iterable"], answer: 0, why: "__init__ is the constructor: Python calls it when you create an instance of the class." },
   ],
   nextNote: "Next, **Best Coding Practices** covers the habits (naming, testing, fast input) that keep contest code correct.",
 };

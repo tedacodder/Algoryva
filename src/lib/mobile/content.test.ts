@@ -89,16 +89,19 @@ describe("hidden tests, drafts and private data never reach the response", () =>
   });
 });
 
-describe("quiz answers and explanations", () => {
-  it("are stripped from every built-in lesson", () => {
+describe("quiz questions", () => {
+  it("are published with their answer and explanation, as the website already publishes them, so offline scoring works", () => {
     const body = parse(src());
     const lessons = body.lessons.filter((l: { source: string }) => l.source === "builtin");
     expect(lessons.length).toBe(Object.keys(LESSONS_V2).length);
-    for (const l of lessons) for (const c of l.checks) expect(Object.keys(c).sort()).toEqual(c.kind ? ["kind", "options", "q"] : ["options", "q"]);
-    // `why` is a legitimate key in complexity tables, so check structure instead of searching the text:
-    // no object anywhere has an `answer` key, and no quiz question has `why`.
-    const walk = (v: unknown, path: string): string[] => (Array.isArray(v) ? v.flatMap((x, i) => walk(x, `${path}[${i}]`)) : v && typeof v === "object" ? Object.entries(v).flatMap(([k, x]) => [...(k === "answer" ? [`${path}.answer`] : []), ...walk(x, `${path}.${k}`)]) : []);
-    expect(walk(body, "$")).toEqual([]);
+    for (const l of lessons) {
+      for (const c of l.checks) {
+        expect(typeof c.answer).toBe("number");
+        expect(c.answer).toBeGreaterThanOrEqual(0);
+        expect(c.answer).toBeLessThan(c.options.length);
+        expect(typeof c.why).toBe("string");
+      }
+    }
   });
   it("covers every question, and the strict schema accepts all real lessons and sections", () => {
     const body = parse(src());

@@ -148,6 +148,10 @@ export const setsDicts: LessonV2 = {
     { kind: "concept", q: "What is `{}` in Python?", options: ["An empty set", "An empty dictionary", "An empty list", "An error"], answer: 1, why: "An empty set must be written `set()`; `{}` creates an empty dictionary." },
     { kind: "recognize", q: "“Group a list of words so that anagrams end up together” is best handled with:", options: ["A dictionary keyed by the sorted letters of each word", "Binary search", "A nested loop comparing every pair", "A linked list"], answer: 0, why: "All anagrams share the same sorted-letters key, so a dictionary of lists groups them in one pass." },
     { kind: "concept", q: "In a hash table, what is a collision?", options: ["A crash", "Two different keys mapping to the same bucket", "A key that is missing", "A duplicate value"], answer: 1, why: "Different keys can hash to the same bucket. The table keeps both in a short list and compares entries within the bucket." },
+    { kind: "trace", q: "Is `{1, 2, 2, 3} == {3, 2, 1}`?", options: ["True", "False", "It raises an error", "It prints {1, 2, 3}"], answer: 0, why: "Sets ignore duplicates and order, so both hold exactly 1, 2 and 3." },
+    { kind: "trace", q: "With `d = {'a': 1}`, what does `d.get('b', 0)` return?", options: ["0", "None", "1", "It raises a KeyError"], answer: 0, why: ".get returns the default when the key is missing, instead of raising an error." },
+    { kind: "trace", q: "What is `len({'a': 1, 'a': 2})`?", options: ["1", "2", "0", "It raises an error"], answer: 0, why: "A repeated key keeps only its last value, so the dictionary has one entry." },
+    { kind: "concept", q: "What is the type of `{}` in Python?", options: ["dict", "set", "tuple", "list"], answer: 0, why: "Empty braces make an empty dictionary. An empty set needs set()." },
   ],
   nextNote: "Next, **Built-ins, Classes & Iterators** collects the standard tools that save you from writing these loops by hand.",
 };

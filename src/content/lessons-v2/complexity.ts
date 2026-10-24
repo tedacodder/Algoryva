@@ -79,6 +79,10 @@ export const complexity: LessonV2 = {
     { kind: "concept", q: "Why is `x in some_list` inside a loop over n items a danger?", options: ["It crashes", "Each `in` scans the list, so the total is O(n²)", "It sorts the list", "It uses O(1) time, so it is safe"], answer: 1, why: "Membership in a list is O(n), and doing it n times gives O(n²). A set makes it O(1) on average." },
     { kind: "trace", q: "How many times does the inner statement run? `for i in range(n): for j in range(i + 1, n): ops += 1` with n = 6.", options: ["6", "15", "30", "36"], answer: 1, why: "Pairs with i < j: 6 × 5 / 2 = 15." },
     { kind: "concept", q: "A recursive function calls itself n levels deep but creates no lists. What is its extra space?", options: ["O(1)", "O(n) for the call stack", "O(log n)", "O(n²)"], answer: 1, why: "Each active call occupies a stack frame, so n nested calls use O(n) memory." },
+    { kind: "complexity", q: "For n = 1,000, roughly how many operations does an O(n log n) algorithm take?", options: ["About 1,000", "About 10,000", "About 1,000,000", "About 1,000,000,000"], answer: 1, why: "n log\u2082 n is about 1,000 \u00d7 10, so roughly 10,000 operations." },
+    { kind: "concept", q: "What does O(1) time mean?", options: ["Time does not grow with the input size", "It runs exactly one step", "It takes one second", "It uses one line of code"], answer: 0, why: "O(1) describes a cost that stays the same however large the input is." },
+    { kind: "complexity", q: "With n = 10\u2076 and a 1-second limit in Python, which is most likely to pass?", options: ["O(n\u00b2)", "O(n log n)", "O(2\u207f)", "O(n!)"], answer: 1, why: "About 2 \u00d7 10\u2077 operations fit in a second; n\u00b2 would need about 10\u00b9\u00b2 operations." },
+    { kind: "trace", q: "For n = 4, how many times does the inner body of two nested loops over `range(n)` run?", options: ["4", "8", "16", "10"], answer: 2, why: "Each of the 4 outer steps runs the inner loop 4 times: 4 \u00d7 4 = 16, which is n\u00b2." },
   ],
   nextNote: "Next, **Arrays, Lists and Matrices** introduces the structure whose costs you will count constantly.",
 };

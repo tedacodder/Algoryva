@@ -158,6 +158,10 @@ export const listsTuples: LessonV2 = {
     { kind: "recognize", q: "Which needs a tuple rather than a list?", options: ["A growing list of results", "A (row, column) pair used as a dictionary key", "A queue of tasks", "A list of names to sort"], answer: 1, why: "Dictionary keys must be hashable, and tuples are while lists are not." },
     { kind: "complexity", q: "Which operation is O(n) on a list of n items?", options: ["`a[5]`", "`a.append(x)`", "`a.insert(0, x)`", "`len(a)`"], answer: 2, why: "Inserting at the front shifts every existing item one place." },
     { kind: "trace", q: "What does `[x for x in range(10) if x % 3 == 0]` produce?", options: ["[3, 6, 9]", "[0, 3, 6, 9]", "[0, 3, 6]", "[1, 4, 7]"], answer: 1, why: "It keeps values from 0 to 9 divisible by 3: 0, 3, 6 and 9." },
+    { kind: "trace", q: "With `a = [1, 2, 3]`, then `b = a` and `b.append(4)`, what is `len(a)`?", options: ["3", "4", "1", "It raises an error"], answer: 1, why: "b and a name the same list, so the append is visible through a too: the length is 4." },
+    { kind: "trace", q: "What is `type((1,)).__name__`?", options: ["int", "list", "tuple", "set"], answer: 2, why: "A trailing comma makes a tuple, even inside parentheses." },
+    { kind: "trace", q: "What does `[1, 2, 3][::-1]` give?", options: ["[3, 2, 1]", "[1, 2, 3]", "[2, 1]", "[3, 2]"], answer: 0, why: "A step of -1 walks the list backwards, from the end to the start." },
+    { kind: "concept", q: "Why can't a list be used as a dictionary key?", options: ["Lists can change, so their hash could change", "Lists are too large", "Lists are unordered", "Dictionary keys must be numbers"], answer: 0, why: "Dictionary keys must be hashable. A list that can change has no stable hash, so Python refuses it." },
   ],
   nextNote: "Next, **Sets & Dictionaries** give you containers that look things up by value in constant time.",
 };

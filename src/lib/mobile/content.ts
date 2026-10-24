@@ -39,7 +39,7 @@ const topicSchema = o({ slug: str, title: str, level: str, prereqs: strs, status
 const builtinLessonSchema = o({
   topicSlug: str, source: z.literal("builtin"), minutes: z.number(), hook: str, objectives: strs, prereqNote: str.optional(),
   sections: z.array(sectionSchema), cheatSheet: z.array(o({ label: str, value: str })), summary: strs,
-  checks: z.array(o({ q: str, options: strs, kind: z.enum(["concept", "trace", "recognize", "complexity"]).optional() })),
+  checks: z.array(o({ q: str, options: strs, answer: z.number().int().nonnegative(), why: str, kind: z.enum(["concept", "trace", "recognize", "complexity"]).optional() })),
   nextNote: str.optional(),
 });
 const customLessonSchema = o({ topicSlug: str, source: z.literal("custom"), markdown: str });
@@ -106,7 +106,7 @@ function publicSection(s: Section): Record<string, unknown> {
   return out;
 }
 
-/** Quiz questions without `answer` and `why`. The server scores quizzes (quiz.submit), as the website does. */
+/** Built-in lesson with its quiz questions (answers and explanations included). Hidden test data is never part of a lesson. */
 export function publicBuiltinLesson(topicSlug: string, l: LessonV2) {
   return {
     topicSlug, source: "builtin" as const, minutes: l.minutes, hook: l.hook, objectives: l.objectives,
@@ -114,7 +114,9 @@ export function publicBuiltinLesson(topicSlug: string, l: LessonV2) {
     sections: l.sections.map(publicSection),
     cheatSheet: l.cheatSheet.map((c) => ({ label: c.label, value: c.value })),
     summary: l.summary,
-    checks: l.checks.map((c) => ({ q: c.q, options: c.options, ...(c.kind !== undefined ? { kind: c.kind } : {}) })),
+    // Answers and explanations are published, as on the website, so the app can score a quiz offline. The server re-scores
+    // every submission (quiz.submit) and is the record of truth.
+    checks: l.checks.map((c) => ({ q: c.q, options: c.options, answer: c.answer, why: c.why, ...(c.kind !== undefined ? { kind: c.kind } : {}) })),
     ...(l.nextNote !== undefined ? { nextNote: l.nextNote } : {}),
   };
 }

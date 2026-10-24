@@ -155,6 +155,10 @@ export const pythonBasics: LessonV2 = {
     { kind: "concept", q: "Which of these counts as False inside an `if`?", options: ["The text \"False\"", "The number 0", "The list [0]", "The text \"0\""], answer: 1, why: "0 is falsy. The text \"False\" and \"0\" and the list [0] are non-empty, so they are truthy." },
     { kind: "trace", q: "For `s = \"competitive\"`, what is `s[2:5]`?", options: ["\"omp\"", "\"mpe\"", "\"mpet\"", "\"pet\""], answer: 1, why: "Indices 2, 3 and 4 are m, p, e; index 5 is excluded." },
     { kind: "recognize", q: "Which statement describes a typical “implementation” problem?", options: ["The input has 10⁶ values and a nested-loop idea is too slow", "The statement says exactly what to compute and the input is small, so careful coding is the challenge", "You must choose the best of 2⁵⁰ combinations", "The answer needs a segment tree"], answer: 1, why: "Implementation problems test careful translation of a description into code, not a clever algorithm." },
+    { kind: "trace", q: "What does `7 % -3` evaluate to in Python?", options: ["-2", "-1", "1", "2"], answer: 0, why: "The result takes the sign of the divisor: 7 = (-3) \u00d7 (-3) + (-2)." },
+    { kind: "trace", q: "What does `print(2 ** 10, 2 ** -1)` print?", options: ["1024 0.5", "1024 0", "1000 0.5", "20 0.5"], answer: 0, why: "`**` is exponentiation; a negative exponent gives a float, so 2 ** -1 is 0.5." },
+    { kind: "trace", q: "After `x = 5` and then `x += 2 * 3`, what is x?", options: ["11", "21", "8", "15"], answer: 0, why: "The multiplication happens first: 2 * 3 is 6, and 5 + 6 is 11." },
+    { kind: "concept", q: "What type is the result of `int('12') + float('0.5')`?", options: ["int", "float", "str", "It raises an error"], answer: 1, why: "Adding an int and a float gives a float, so the result is 12.5." },
   ],
   nextNote: "Next, **Lists & Tuples** and **Sets & Dictionaries** introduce the containers you will use in every problem.",
 };
