@@ -1,0 +1,8 @@
+# Maestro flow: after the phone reconnects. The account screen should report synced and no changes waiting.
+appId: com.tedacodder.algoryva
+---
+- launchApp:
+    clearState: false
+- tapOn: "Account: Sign in, sync and delete your account"
+- assertVisible: "Synced"
+- assertNotVisible: "changes waiting to sync"
