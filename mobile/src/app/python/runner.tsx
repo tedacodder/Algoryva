@@ -10,6 +10,9 @@ import { Button, Field, Notice } from "../../components/common/Controls";
 import { getDatabase } from "../../lib/db/open";
 import { checkSnippet, deleteSnippet, listSnippets, saveSnippet, type Snippet } from "../../lib/python/snippets";
 import { applyNewline, insertAt, INDENT, lineNumbers } from "../../lib/python/editorLogic";
+import { tokenize } from "../../lib/highlight";
+import { FONTS } from "../../lib/ui/fonts";
+import { findMatches, nextMatch, replaceAll, suggestionsAt } from "../../lib/python/completion";
 
 /**
  * Python Runner: write, run and save Python programs on the phone, offline.
@@ -64,6 +67,11 @@ export default function PythonRunner() {
   const [message, setMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState<Snippet[]>([]);
   const [showSaved, setShowSaved] = useState(false);
+  const [showFind, setShowFind] = useState(false);
+  const [find, setFind] = useState("");
+  const [replacement, setReplacement] = useState("");
+  const matches = findMatches(code, find);
+  const sugg = sel.start === sel.end ? suggestionsAt(code, sel.start) : { start: sel.start, word: "", options: [] as string[] };
   const webRef = useRef<WebView | null>(null);
   const runningRef = useRef(false);
 
@@ -153,6 +161,30 @@ export default function PythonRunner() {
 
   const press = (key: string) => insert(key === "tab" ? INDENT : key);
 
+  const complete = (option: string) => {
+    const r = insertAt(code, sugg.start, sel.start, option);
+    setCode(r.text);
+    const next = { start: r.cursor, end: r.cursor };
+    selRef.current = next;
+    setSel(next);
+  };
+
+  const findNext = () => {
+    const at = nextMatch(matches, selRef.current.end);
+    if (at === null) return setMessage(find ? `No matches for "${find}".` : "Type something to find.");
+    const next = { start: at, end: at + find.length };
+    selRef.current = next;
+    setSel(next);
+    setMessage(`Match ${matches.indexOf(at) + 1} of ${matches.length}.`);
+  };
+
+  const replaceEverywhere = () => {
+    if (find.length === 0) return setMessage("Type something to find first.");
+    const r = replaceAll(code, find, replacement);
+    setCode(r.text);
+    setMessage(r.count === 0 ? `No matches for "${find}".` : `Replaced ${r.count} ${r.count === 1 ? "match" : "matches"}.`);
+  };
+
   const doSave = async () => {
     const check = checkSnippet(name, code);
     if (!check.ok) return setMessage(check.error);
@@ -181,6 +213,8 @@ export default function PythonRunner() {
 
   const html = stage.html;
   const lineCount = code.split("\n").length;
+  const tokenColor = (t: string): string =>
+    t === "kw" ? c.tok.kw : t === "str" ? c.tok.str : t === "num" ? c.tok.num : t === "com" ? c.tok.com : t === "fn" ? c.tok.fn : t === "bi" ? c.tok.bi : c.codeFg;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -205,6 +239,7 @@ export default function PythonRunner() {
           <Button label={ready ? (running ? "Running…" : "Run") : "Starting…"} variant="primary" icon="play" disabled={!ready || running} onPress={run} />
           <Button label="Stop" variant="danger" icon="pause" disabled={!running} onPress={stop} />
           <Button label="Saved" icon="list" onPress={openSaved} />
+          <Button label={showFind ? "Hide find" : "Find"} icon="search" onPress={() => setShowFind((v) => !v)} />
         </View>
         {!ready ? <Text style={s.hint}>Python is starting. This takes a few seconds the first time.</Text> : null}
         {message ? <Notice text={message} tone="info" /> : null}
@@ -212,7 +247,13 @@ export default function PythonRunner() {
         <ScrollView horizontal={false} style={s.editorBox} nestedScrollEnabled>
           <View style={s.editorRow}>
             <Text style={s.gutter} selectable={false}>{lineNumbers(code)}</Text>
-            <TextInput
+            <View style={{ flex: 1 }}>
+              <Text style={[s.code, s.overlay]} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no">
+                {tokenize(code).map((t, i) => (
+                  <Text key={i} style={{ color: tokenColor(t.t), fontStyle: t.t === "com" ? "italic" : "normal", fontFamily: t.t === "kw" ? FONTS.monoBold : undefined }}>{t.v}</Text>
+                ))}
+              </Text>
+              <TextInput
               value={code}
               onChangeText={edit}
               onSelectionChange={(e) => {
@@ -225,10 +266,21 @@ export default function PythonRunner() {
               spellCheck={false}
               textAlignVertical="top"
               accessibilityLabel={`Python code, ${lineCount} lines`}
-              style={s.code}
+              style={[s.code, s.typed]}
             />
+            </View>
           </View>
         </ScrollView>
+
+        {sugg.options.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.symbols} contentContainerStyle={s.symbolsInner} keyboardShouldPersistTaps="always">
+            {sugg.options.map((o) => (
+              <Pressable key={o} onPress={() => complete(o)} accessibilityRole="button" accessibilityLabel={`Complete as ${o}`} style={[s.key, s.suggest]}>
+                <Text style={[s.keyText, { color: c.brand }]}>{o}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.symbols} contentContainerStyle={s.symbolsInner}>
           {SYMBOLS.map((k) => (
@@ -237,6 +289,18 @@ export default function PythonRunner() {
             </Pressable>
           ))}
         </ScrollView>
+
+        {showFind ? (
+          <View style={s.panel}>
+            <Text style={s.panelTitle}>{matches.length > 0 ? `${matches.length} matches` : "Find and replace"}</Text>
+            <Field label="Find" value={find} onChangeText={setFind} autoCorrect={false} autoCapitalize="none" />
+            <Field label="Replace with" value={replacement} onChangeText={setReplacement} autoCorrect={false} autoCapitalize="none" />
+            <View style={s.toolbar}>
+              <Button label="Next match" onPress={findNext} />
+              <Button label="Replace all" variant="primary" onPress={replaceEverywhere} />
+            </View>
+          </View>
+        ) : null}
 
         <Field label="Input for input()" hint="One line per input() call, in order." value={stdin} onChangeText={setStdin} multiline autoCapitalize="none" autoCorrect={false} />
 
@@ -293,9 +357,12 @@ const useStyles = makeStyles((c, f) => ({
   editorBox: { maxHeight: 300, borderRadius: 14, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.codeBg },
   editorRow: { flexDirection: "row" },
   gutter: { fontFamily: f.mono, fontSize: 14, lineHeight: 21, color: c.muted, paddingHorizontal: 10, paddingTop: 10, textAlign: "right", minWidth: 44, backgroundColor: c.sunken },
-  code: { flex: 1, fontFamily: f.mono, fontSize: 14, lineHeight: 21, color: c.codeFg, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 14, minHeight: 220 },
+  code: { fontFamily: f.mono, fontSize: 14, lineHeight: 21, color: c.codeFg, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 14, minHeight: 220 },
+  overlay: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 },
+  typed: { color: "transparent", textAlignVertical: "top" },
   symbols: { flexGrow: 0 },
   symbolsInner: { gap: 6, paddingVertical: 2 },
+  suggest: { borderColor: "transparent", backgroundColor: c.tint.brand, paddingHorizontal: 14 },
   key: { minWidth: 40, minHeight: 40, borderRadius: 10, borderWidth: 1, borderColor: c.lineStrong, backgroundColor: c.surface, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
   keyText: { fontFamily: f.mono, fontSize: 16, color: c.fg },
   panel: { borderRadius: 14, borderWidth: 1, borderColor: c.line, backgroundColor: c.surface, padding: 14, gap: 8 },
