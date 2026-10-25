@@ -87,15 +87,6 @@ export default function VisualizerIndex() {
   return (
     <ScrollView style={s.screen} contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
       <View style={s.header}>
-        <View style={s.headRow}>
-          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={s.circle}>
-            <Icon name="arrowLeft" size={20} color={c.fg} />
-          </Pressable>
-          <Text style={s.title} accessibilityRole="header">Visualizer</Text>
-          <Pressable onPress={() => router.push("/settings" as never)} accessibilityRole="button" accessibilityLabel="Settings" style={s.circle}>
-            <Icon name="menu" size={20} color={c.soft} />
-          </Pressable>
-        </View>
         <View style={s.status}>
           <View style={s.statusLeft}>
             <View style={s.dot} />

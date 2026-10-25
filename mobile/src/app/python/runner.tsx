@@ -10,7 +10,7 @@ import { Button, Field, Notice } from "../../components/common/Controls";
 import { getDatabase } from "../../lib/db/open";
 import { checkSnippet, deleteSnippet, listSnippets, saveSnippet, type Snippet } from "../../lib/python/snippets";
 import { applyNewline, insertAt, INDENT, lineNumbers } from "../../lib/python/editorLogic";
-import { copyProgressText, startingText, startupHint } from "../../lib/python/startup";
+import { copyPercent, copyProgressText, INLINED_FILES, startPercent, startingText, startupHint } from "../../lib/python/startup";
 import { tokenize } from "../../lib/highlight";
 import { FONTS } from "../../lib/ui/fonts";
 import { findMatches, nextMatch, replaceAll, suggestionsAt } from "../../lib/python/completion";
@@ -24,12 +24,33 @@ const DIR = `${FileSystem.documentDirectory}python/`;
 const SYMBOLS = ["(", ")", "[", "]", "{", "}", ":", '"', "'", "=", "+", "-", "*", "/", "%", "#", "<", ">", "!", "_", ".", ",", "tab"];
 const SAMPLE = 'name = input("Your name: ")\nfor i in range(3):\n    print(f"Hello {name}, step {i + 1}")\n';
 
-const runnerHtml = (base: string, moduleSource: string) => `<!doctype html><html><head><meta charset="utf-8"/>
+const runnerHtml = (base: string, moduleSource: string, inlined: Record<string, string>) => `<!doctype html><html><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="background:#fff;margin:0">
 <script>
 var py = null;
 function send(o) { window.ReactNativeWebView.postMessage(JSON.stringify(o)); }
 window.onerror = function (msg, src, line) { send({ kind: "error", text: "script error: " + msg + " line " + line }); };
+// Report every runtime file as it is requested and finished, so a stall shows exactly which file it is waiting for.
+(function () {
+  var nativeFetch = window.fetch.bind(window);
+  var INLINED = ${JSON.stringify(inlined)};
+  window.fetch = function (input, init) {
+    var name = String(input).split("/").pop().split("?")[0];
+    send({ kind: "fetch", text: name, status: "start" });
+    var target = input;
+    if (INLINED[name] !== undefined) {
+      var type = name.slice(-5) === ".wasm" ? "application/wasm" : name.slice(-5) === ".json" ? "application/json" : "application/octet-stream";
+      target = "data:" + type + ";base64," + INLINED[name];
+    }
+    return nativeFetch(target, init).then(function (r) {
+      send({ kind: "fetch", text: name, status: r.ok ? "done" : "failed " + r.status });
+      return r;
+    }, function (e) {
+      send({ kind: "fetch", text: name, status: "error " + e });
+      throw e;
+    });
+  };
+})();
 function lastLine(e) { var t = String((e && e.message) || e || "Error").trim(); var lines = t.split("\\n").filter(function (l) { return l.trim().length > 0; }); return lines[lines.length - 1] || "Error"; }
 window.runCode = function (code, lines) {
   if (!py) { send({ kind: "error", text: "Python is not ready yet." }); return; }
@@ -41,13 +62,13 @@ window.runCode = function (code, lines) {
   send({ kind: "result", stdout: out.join(""), stderr: err.join(""), error: error, ms: Date.now() - start });
 };
 </script>
-<script src="${base}pyodide.js" onload="send({ kind: 'stage', text: 'Loading the Python core' })" onerror="send({ kind: 'error', text: 'Could not load the Python loader from this phone. Restart Python; if it keeps failing, reinstall the app.' })"></script>
+<script src="${base}pyodide.js" onload="send({ kind: 'stage', text: 'Loading the Python core', pct: 15 })" onerror="send({ kind: 'error', text: 'Could not load the Python loader from this phone. Restart Python; if it keeps failing, reinstall the app.' })"></script>
 <script>
 var MODULE_SOURCE = ${JSON.stringify(moduleSource)};
-send({ kind: 'stage', text: 'Preparing the runtime module' });
+send({ kind: 'stage', text: 'Preparing the runtime module', pct: 5 });
 var moduleUrl = URL.createObjectURL(new Blob([MODULE_SOURCE], { type: "text/javascript" }));
 import(moduleUrl).then(function (m) {
-  send({ kind: 'stage', text: 'Starting Python (standard library)' });
+  send({ kind: 'stage', text: 'Starting Python (standard library)', pct: 25 });
   return loadPyodide({ indexURL: "${base}", createPyodideModule: m.default });
 }).then(function (p) { py = p; send({ kind: "ready" }); })
   .catch(function (e) { send({ kind: "error", text: "Python could not start: " + (e && e.message ? e.message : e) }); });
@@ -55,15 +76,19 @@ import(moduleUrl).then(function (m) {
 
 type Stage =
   | { kind: "copying"; done: number; total: number; name: string; bytes: number }
-  | { kind: "starting"; html: string }
-  | { kind: "ready"; html: string }
-  | { kind: "error"; message: string; html: string };
+  | { kind: "starting"; uri: string }
+  | { kind: "ready"; uri: string }
+  | { kind: "error"; message: string; uri: string };
 type Output = { stdout: string; stderr: string; error: string | null; ms: number } | null;
 
 export default function PythonRunner() {
   const { c, s } = useStyles();
   const [stage, setStage] = useState<Stage>({ kind: "copying", done: 0, total: PYTHON_FILES.length, name: PYTHON_FILES[0]!.name, bytes: PYTHON_FILES[0]!.bytes });
   const [stageText, setStageText] = useState<string | null>(null);
+  const [stagePct, setStagePct] = useState(0);
+  const [pageLoaded, setPageLoaded] = useState(false);
+  const [loaded, setLoaded] = useState<string[]>([]);
+  const [lastFetch, setLastFetch] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [session, setSession] = useState(0);
   const [code, setCode] = useState(SAMPLE);
@@ -100,9 +125,17 @@ export default function PythonRunner() {
           await FileSystem.copyAsync({ from: asset.localUri, to: dest });
         }
         const moduleSource = await FileSystem.readAsStringAsync(`${DIR}pyodide.asm.mjs`);
-        if (alive) setStage({ kind: "starting", html: runnerHtml(DIR, moduleSource) });
+        // The page cannot fetch these from the phone's folder, so they are handed to it as base64 text.
+        const inlined: Record<string, string> = {};
+        for (const name of INLINED_FILES) {
+          inlined[name] = await FileSystem.readAsStringAsync(`${DIR}${name}`, { encoding: "base64" });
+        }
+        // The page is saved as a file and opened by its address. A very large page cannot be passed to the WebView as text.
+        const pagePath = `${DIR}runner.html`;
+        await FileSystem.writeAsStringAsync(pagePath, runnerHtml(DIR, moduleSource, inlined));
+        if (alive) setStage({ kind: "starting", uri: pagePath });
       } catch (e) {
-        if (alive) setStage({ kind: "error", message: e instanceof Error ? e.message : String(e), html: "" });
+        if (alive) setStage({ kind: "error", message: e instanceof Error ? e.message : String(e), uri: "" });
       }
     })();
     return () => {
@@ -118,9 +151,12 @@ export default function PythonRunner() {
     return () => clearInterval(id);
   }, [starting, session]);
   const hint = starting ? startupHint(elapsed) : null;
+  const startedPct = startPercent(loaded, stagePct, ready);
+  // The page itself did not open: say so, rather than showing 0% with no reason.
+  const pageHint = starting && !pageLoaded && elapsed >= 15 ? "The Python page has not opened yet. Tap Restart Python." : null;
 
   const onMessage = (e: WebViewMessageEvent) => {
-    let m: { kind: string; text?: string; stdout?: string; stderr?: string; error?: string | null; ms?: number };
+    let m: { kind: string; text?: string; pct?: number; status?: string; stdout?: string; stderr?: string; error?: string | null; ms?: number };
     try {
       m = JSON.parse(e.nativeEvent.data);
     } catch {
@@ -128,9 +164,17 @@ export default function PythonRunner() {
     }
     if (m.kind === "stage") {
       setStageText(m.text ?? null);
+      setStagePct(m.pct ?? 0);
+    } else if (m.kind === "fetch") {
+      setLastFetch(`${m.text ?? "file"}: ${m.status ?? ""}`);
+      if (m.status === "done" && m.text) {
+        const name = m.text;
+        setLoaded((l) => (l.includes(name) ? l : [...l, name]));
+      }
     } else if (m.kind === "ready") {
       setStageText(null);
-      setStage((st) => (st.kind === "starting" || st.kind === "ready" ? { kind: "ready", html: st.html } : st));
+      setStagePct(100);
+      setStage((st) => (st.kind === "starting" || st.kind === "ready" ? { kind: "ready", uri: st.uri } : st));
     } else if (m.kind === "result") {
       runningRef.current = false;
       setRunning(false);
@@ -139,7 +183,7 @@ export default function PythonRunner() {
       runningRef.current = false;
       setRunning(false);
       setMessage(m.text ?? "Python reported an error.");
-      setStage((st) => (st.kind === "starting" ? { kind: "error", message: m.text ?? "Python could not start.", html: st.html } : st));
+      setStage((st) => (st.kind === "starting" ? { kind: "error", message: m.text ?? "Python could not start.", uri: st.uri } : st));
     }
   };
 
@@ -158,9 +202,13 @@ export default function PythonRunner() {
     runningRef.current = false;
     setRunning(false);
     setStageText(null);
+    setStagePct(0);
+    setPageLoaded(false);
+    setLoaded([]);
+    setLastFetch(null);
     setElapsed(0);
     setOutput({ stdout: "", stderr: "", error: why, ms: 0 });
-    setStage((st) => (st.kind === "ready" || st.kind === "starting" || st.kind === "error" ? { kind: "starting", html: st.html } : st));
+    setStage((st) => (st.kind === "ready" || st.kind === "starting" || st.kind === "error" ? { kind: "starting", uri: st.uri } : st));
     setSession((n) => n + 1);
   };
   const stop = () => restart("Stopped. Python is starting again; this takes a moment.");
@@ -225,12 +273,15 @@ export default function PythonRunner() {
   };
 
   if (stage.kind === "copying") {
-    const pct = Math.round((stage.done / stage.total) * 100);
+    const doneBytes = PYTHON_FILES.slice(0, stage.done).reduce((n, f) => n + f.bytes, 0);
+    const totalBytes = PYTHON_FILES.reduce((n, f) => n + f.bytes, 0);
+    const pct = copyPercent(doneBytes, totalBytes);
     return (
       <View style={s.center}>
         <ActivityIndicator color={c.brand} />
         <Text style={s.text} accessibilityLiveRegion="polite">{copyProgressText(stage.done, stage.total, stage.name, stage.bytes)}</Text>
-        <View style={s.bar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: stage.total, now: stage.done }}>
+        <Text style={s.pctText}>{`${pct}%`}</Text>
+        <View style={s.bar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }}>
           <View style={[s.barFill, { width: `${pct}%` }]} />
         </View>
         <Text style={s.hint}>This happens once. After that, Python starts without copying anything.</Text>
@@ -246,7 +297,7 @@ export default function PythonRunner() {
     );
   }
 
-  const html = stage.html;
+  const uri = stage.uri;
   const lineCount = code.split("\n").length;
   const tokenColor = (t: string): string =>
     t === "kw" ? c.tok.kw : t === "str" ? c.tok.str : t === "num" ? c.tok.num : t === "com" ? c.tok.com : t === "fn" ? c.tok.fn : t === "bi" ? c.tok.bi : c.codeFg;
@@ -257,7 +308,8 @@ export default function PythonRunner() {
       <View style={s.hidden}>
         <WebView
           originWhitelist={["*"]}
-          source={{ html, baseUrl: `file://${DIR}` }}
+          source={{ uri }}
+          onLoadEnd={() => setPageLoaded(true)}
           ref={webRef as never}
           key={session}
           allowFileAccess
@@ -280,8 +332,13 @@ export default function PythonRunner() {
         {starting ? (
           <View style={s.panel} accessibilityLiveRegion="polite">
             <Text style={s.panelTitle}>Starting Python</Text>
+            <Text style={s.pctText}>{`${startedPct}%`}</Text>
+            <View style={s.bar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: startedPct }}>
+              <View style={[s.barFill, { width: `${startedPct}%` }]} />
+            </View>
             <Text style={s.out}>{startingText(elapsed, stageText)}</Text>
-            {hint ? <Text style={s.hint}>{hint}</Text> : null}
+            {lastFetch ? <Text style={s.muted}>{`Last file: ${lastFetch}`}</Text> : null}
+            {pageHint ? <Text style={s.hint}>{pageHint}</Text> : hint ? <Text style={s.hint}>{hint}</Text> : null}
             <Button label="Restart Python" onPress={() => restart("Restarting Python…")} />
           </View>
         ) : null}
@@ -395,6 +452,7 @@ const useStyles = makeStyles((c, f) => ({
   hidden: { height: 2, width: 2, overflow: "hidden", opacity: 0 },
   bar: { width: "80%", height: 8, borderRadius: 4, backgroundColor: c.sunken, overflow: "hidden" },
   barFill: { height: "100%", backgroundColor: c.brand },
+  pctText: { fontFamily: f.extrabold, fontSize: 22, color: c.fg },
   webview: { height: 2, width: 2 },
   content: { padding: 14, paddingBottom: 48, gap: 12 },
   toolbar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

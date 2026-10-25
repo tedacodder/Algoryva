@@ -23,3 +23,34 @@ export function startupHint(elapsedS: number): string | null {
   if (elapsedS < STARTUP_HINT_AFTER_S) return null;
   return "This is taking longer than usual. The first start can take a minute on an older phone. If it does not finish, tap Restart Python.";
 }
+
+/**
+ * Progress for the start-up, as a percentage. Copying is measured in bytes. Starting is estimated from the runtime files it has
+ * finished loading (weighted by size) and the stage it has reached. It is never 100 until the runtime says it is ready.
+ */
+export const LOAD_WEIGHTS: Record<string, number> = { "pyodide.js": 2, "pyodide.asm.mjs": 10, "pyodide.asm.wasm": 60, "python_stdlib.zip": 24, "pyodide-lock.json": 4 };
+
+export function copyPercent(doneBytes: number, totalBytes: number): number {
+  if (totalBytes <= 0) return 0;
+  return Math.min(100, Math.round((doneBytes / totalBytes) * 100));
+}
+
+export function startPercent(loadedFiles: string[], stagePct: number, ready: boolean): number {
+  if (ready) return 100;
+  const fetched = loadedFiles.reduce((n, f) => n + (LOAD_WEIGHTS[f] ?? 0), 0);
+  return Math.min(99, Math.max(stagePct, Math.round(fetched)));
+}
+
+/**
+ * The runtime files the page needs by fetch. They are handed to the page as base64 data, because the WebView will not fetch files
+ * from the phone's folder. Returns the address to fetch instead: the data address for a known file, otherwise the original address.
+ */
+export const INLINED_FILES = ["pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json"] as const;
+
+export function inlinedTarget(url: string, inlined: Record<string, string>): string {
+  const name = url.split("/").pop()?.split("?")[0] ?? "";
+  const data = inlined[name];
+  if (data === undefined) return url;
+  const type = name.endsWith(".wasm") ? "application/wasm" : name.endsWith(".json") ? "application/json" : "application/octet-stream";
+  return `data:${type};base64,${data}`;
+}
