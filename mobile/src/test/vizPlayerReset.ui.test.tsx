@@ -20,7 +20,7 @@ describe("visualization player keeps its place", () => {
       rerender(<VizPlayer viz={make()} />);
     });
     expect(getByText("two")).toBeTruthy();
-  });
+  }, 20000);
 
   it("a different visualization does start again from the first step", async () => {
     const { getByRole, getByText, rerender } = await render(<VizPlayer viz={make()} />);

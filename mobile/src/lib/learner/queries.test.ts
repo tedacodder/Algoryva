@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { migrate } from "../db/migrations";
 import { openTestDb } from "../test-support/node-sqlite";
 import { seedContent } from "../test-support/seed";
-import { loadDueRevisits } from "./queries";
+import { loadDueRevisits, loadDueTopicReviews, loadUpcomingTopicReviews } from "./queries";
 import type { SqlDb } from "../db/sql";
 
 let db: SqlDb & { close(): void };
@@ -27,7 +27,6 @@ describe("due revisits", () => {
   });
 });
 
-import { loadUpcomingTopicReviews, loadDueTopicReviews } from "./queries";
 
 describe("topic reviews: due and coming up", () => {
   it("separates reviews that are due from those scheduled later", async () => {

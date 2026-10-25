@@ -6,6 +6,7 @@ import type { Gen } from "../../lib/visualizer/types";
 import type { VizView } from "../../components/viz/types";
 import { VizPlayer } from "../../components/viz/VizPlayer";
 import { Card, H, P } from "../../components/common/Ui";
+import { Tag } from "../../components/common/Controls";
 import { makeStyles, MIN_TOUCH } from "../../lib/ui/theme";
 
 function toView(gen: Gen, title: string): VizView {
@@ -45,7 +46,11 @@ export default function AlgorithmScreen() {
         <Text style={s.title} accessibilityRole="header">{algo.title}</Text>
         <P>{algo.summary}</P>
         {algo.precondition ? <P>{`Input must: ${algo.precondition}`}</P> : null}
-        <Text style={s.meta}>Time {algo.complexity.time} · Space {algo.complexity.space}{algo.complexity.note ? ` · ${algo.complexity.note}` : ""}</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <Tag label={`Time O(${algo.complexity.time.replace(/^O\(|\)$/g, "")})`} tone="brand" />
+          <Tag label={`Space O(${algo.complexity.space.replace(/^O\(|\)$/g, "")})`} />
+          {algo.complexity.note ? <Tag label={algo.complexity.note} tone="ok" /> : null}
+        </View>
 
         <Card>
           <H level={3}>Input</H>

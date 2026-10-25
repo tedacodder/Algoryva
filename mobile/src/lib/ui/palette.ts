@@ -77,3 +77,10 @@ export const paletteFor = (mode: ThemeMode): Palette => (mode === "dark" ? DARK 
 
 // Tones used by the website's callouts and cards, derived from the palette above.
 export const brandFaint = (p: Palette): string => p.tint.brandFaint;
+
+/** A colour with a given opacity, for soft tints (badges, selected cards). */
+export function withAlpha(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}

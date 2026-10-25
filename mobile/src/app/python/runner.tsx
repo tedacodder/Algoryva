@@ -10,6 +10,7 @@ import { Button, Field, Notice } from "../../components/common/Controls";
 import { getDatabase } from "../../lib/db/open";
 import { checkSnippet, deleteSnippet, listSnippets, saveSnippet, type Snippet } from "../../lib/python/snippets";
 import { applyNewline, insertAt, INDENT, lineNumbers } from "../../lib/python/editorLogic";
+import { copyProgressText, startingText, startupHint } from "../../lib/python/startup";
 import { tokenize } from "../../lib/highlight";
 import { FONTS } from "../../lib/ui/fonts";
 import { findMatches, nextMatch, replaceAll, suggestionsAt } from "../../lib/python/completion";
@@ -40,22 +41,30 @@ window.runCode = function (code, lines) {
   send({ kind: "result", stdout: out.join(""), stderr: err.join(""), error: error, ms: Date.now() - start });
 };
 </script>
-<script src="${base}pyodide.js"></script>
+<script src="${base}pyodide.js" onload="send({ kind: 'stage', text: 'Loading the Python core' })" onerror="send({ kind: 'error', text: 'Could not load the Python loader from this phone. Restart Python; if it keeps failing, reinstall the app.' })"></script>
 <script>
 var MODULE_SOURCE = ${JSON.stringify(moduleSource)};
+send({ kind: 'stage', text: 'Preparing the runtime module' });
 var moduleUrl = URL.createObjectURL(new Blob([MODULE_SOURCE], { type: "text/javascript" }));
 import(moduleUrl).then(function (m) {
+  send({ kind: 'stage', text: 'Starting Python (standard library)' });
   return loadPyodide({ indexURL: "${base}", createPyodideModule: m.default });
 }).then(function (p) { py = p; send({ kind: "ready" }); })
   .catch(function (e) { send({ kind: "error", text: "Python could not start: " + (e && e.message ? e.message : e) }); });
 </script></body></html>`;
 
-type Stage = { kind: "copying" } | { kind: "loading"; html: string } | { kind: "ready"; html: string } | { kind: "error"; message: string };
+type Stage =
+  | { kind: "copying"; done: number; total: number; name: string; bytes: number }
+  | { kind: "starting"; html: string }
+  | { kind: "ready"; html: string }
+  | { kind: "error"; message: string; html: string };
 type Output = { stdout: string; stderr: string; error: string | null; ms: number } | null;
 
 export default function PythonRunner() {
   const { c, s } = useStyles();
-  const [stage, setStage] = useState<Stage>({ kind: "copying" });
+  const [stage, setStage] = useState<Stage>({ kind: "copying", done: 0, total: PYTHON_FILES.length, name: PYTHON_FILES[0]!.name, bytes: PYTHON_FILES[0]!.bytes });
+  const [stageText, setStageText] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
   const [session, setSession] = useState(0);
   const [code, setCode] = useState(SAMPLE);
   const [sel, setSel] = useState({ start: SAMPLE.length, end: SAMPLE.length });
@@ -80,7 +89,9 @@ export default function PythonRunner() {
     (async () => {
       try {
         await FileSystem.makeDirectoryAsync(DIR, { intermediates: true });
-        for (const f of PYTHON_FILES) {
+        for (let i = 0; i < PYTHON_FILES.length; i++) {
+          const f = PYTHON_FILES[i]!;
+          if (alive) setStage({ kind: "copying", done: i, total: PYTHON_FILES.length, name: f.name, bytes: f.bytes });
           const dest = `${DIR}${f.name}`;
           if ((await FileSystem.getInfoAsync(dest)).exists) continue;
           const asset = Asset.fromModule(f.asset);
@@ -89,9 +100,9 @@ export default function PythonRunner() {
           await FileSystem.copyAsync({ from: asset.localUri, to: dest });
         }
         const moduleSource = await FileSystem.readAsStringAsync(`${DIR}pyodide.asm.mjs`);
-        if (alive) setStage({ kind: "loading", html: runnerHtml(DIR, moduleSource) });
+        if (alive) setStage({ kind: "starting", html: runnerHtml(DIR, moduleSource) });
       } catch (e) {
-        if (alive) setStage({ kind: "error", message: e instanceof Error ? e.message : String(e) });
+        if (alive) setStage({ kind: "error", message: e instanceof Error ? e.message : String(e), html: "" });
       }
     })();
     return () => {
@@ -100,6 +111,13 @@ export default function PythonRunner() {
   }, []);
 
   const ready = stage.kind === "ready";
+  const starting = stage.kind === "starting";
+  useEffect(() => {
+    if (!starting) return;
+    const id = setInterval(() => setElapsed((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [starting, session]);
+  const hint = starting ? startupHint(elapsed) : null;
 
   const onMessage = (e: WebViewMessageEvent) => {
     let m: { kind: string; text?: string; stdout?: string; stderr?: string; error?: string | null; ms?: number };
@@ -108,8 +126,11 @@ export default function PythonRunner() {
     } catch {
       return;
     }
-    if (m.kind === "ready") {
-      setStage((st) => (st.kind === "loading" || st.kind === "ready" ? { kind: "ready", html: st.html } : st));
+    if (m.kind === "stage") {
+      setStageText(m.text ?? null);
+    } else if (m.kind === "ready") {
+      setStageText(null);
+      setStage((st) => (st.kind === "starting" || st.kind === "ready" ? { kind: "ready", html: st.html } : st));
     } else if (m.kind === "result") {
       runningRef.current = false;
       setRunning(false);
@@ -118,6 +139,7 @@ export default function PythonRunner() {
       runningRef.current = false;
       setRunning(false);
       setMessage(m.text ?? "Python reported an error.");
+      setStage((st) => (st.kind === "starting" ? { kind: "error", message: m.text ?? "Python could not start.", html: st.html } : st));
     }
   };
 
@@ -131,14 +153,17 @@ export default function PythonRunner() {
     webRef.current?.injectJavaScript(`runCode(${JSON.stringify(code)}, ${JSON.stringify(lines)}); true;`);
   };
 
-  const stop = () => {
+  const restart = (why: string) => {
     // A program stuck in a loop blocks its own thread, so the only reliable stop is to reload the runtime.
     runningRef.current = false;
     setRunning(false);
-    setOutput({ stdout: "", stderr: "", error: "Stopped. The runtime was restarted; it takes a moment to be ready again.", ms: 0 });
-    setStage((st) => (st.kind === "ready" ? { kind: "loading", html: st.html + `<!--${session}-->` } : st));
+    setStageText(null);
+    setElapsed(0);
+    setOutput({ stdout: "", stderr: "", error: why, ms: 0 });
+    setStage((st) => (st.kind === "ready" || st.kind === "starting" || st.kind === "error" ? { kind: "starting", html: st.html } : st));
     setSession((n) => n + 1);
   };
+  const stop = () => restart("Stopped. Python is starting again; this takes a moment.");
 
   const edit = (t: string) => {
     const delta = t.length - code.length;
@@ -200,15 +225,25 @@ export default function PythonRunner() {
   };
 
   if (stage.kind === "copying") {
+    const pct = Math.round((stage.done / stage.total) * 100);
     return (
       <View style={s.center}>
         <ActivityIndicator color={c.brand} />
-        <Text style={s.text}>Preparing Python on this phone…</Text>
+        <Text style={s.text} accessibilityLiveRegion="polite">{copyProgressText(stage.done, stage.total, stage.name, stage.bytes)}</Text>
+        <View style={s.bar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: stage.total, now: stage.done }}>
+          <View style={[s.barFill, { width: `${pct}%` }]} />
+        </View>
+        <Text style={s.hint}>This happens once. After that, Python starts without copying anything.</Text>
       </View>
     );
   }
   if (stage.kind === "error") {
-    return <ScrollView contentContainerStyle={s.pad}><Text style={s.error}>{`Python could not be prepared: ${stage.message}`}</Text></ScrollView>;
+    return (
+      <ScrollView contentContainerStyle={s.pad}>
+        <Text style={s.error}>{`Python could not start: ${stage.message}`}</Text>
+        <Button label="Restart Python" variant="primary" onPress={() => restart("Restarting Python…")} />
+      </ScrollView>
+    );
   }
 
   const html = stage.html;
@@ -224,6 +259,7 @@ export default function PythonRunner() {
           originWhitelist={["*"]}
           source={{ html, baseUrl: `file://${DIR}` }}
           ref={webRef as never}
+          key={session}
           allowFileAccess
           allowUniversalAccessFromFileURLs
           allowingReadAccessToURL={DIR}
@@ -241,7 +277,14 @@ export default function PythonRunner() {
           <Button label="Saved" icon="list" onPress={openSaved} />
           <Button label={showFind ? "Hide find" : "Find"} icon="search" onPress={() => setShowFind((v) => !v)} />
         </View>
-        {!ready ? <Text style={s.hint}>Python is starting. This takes a few seconds the first time.</Text> : null}
+        {starting ? (
+          <View style={s.panel} accessibilityLiveRegion="polite">
+            <Text style={s.panelTitle}>Starting Python</Text>
+            <Text style={s.out}>{startingText(elapsed, stageText)}</Text>
+            {hint ? <Text style={s.hint}>{hint}</Text> : null}
+            <Button label="Restart Python" onPress={() => restart("Restarting Python…")} />
+          </View>
+        ) : null}
         {message ? <Notice text={message} tone="info" /> : null}
 
         <ScrollView horizontal={false} style={s.editorBox} nestedScrollEnabled>
@@ -350,6 +393,8 @@ const useStyles = makeStyles((c, f) => ({
   text: { fontFamily: f.regular, fontSize: 15, color: c.fg },
   error: { fontFamily: f.regular, fontSize: 15, lineHeight: 22, color: c.bad },
   hidden: { height: 2, width: 2, overflow: "hidden", opacity: 0 },
+  bar: { width: "80%", height: 8, borderRadius: 4, backgroundColor: c.sunken, overflow: "hidden" },
+  barFill: { height: "100%", backgroundColor: c.brand },
   webview: { height: 2, width: 2 },
   content: { padding: 14, paddingBottom: 48, gap: 12 },
   toolbar: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

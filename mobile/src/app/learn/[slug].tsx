@@ -1,15 +1,13 @@
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
+import { loadLesson, loadProblems, loadTopics } from "../../lib/content/repository";
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { router } from "expo-router";
-import { Stack, useLocalSearchParams } from "expo-router";
 import { getDatabase } from "../../lib/db/open";
-import { loadLesson, loadTopics } from "../../lib/content/repository";
 import { loadProgressMap, type TopicProgress } from "../../lib/learner/queries";
 import { completedSlugs } from "../../lib/learner/apply";
 import { unlockState } from "../../lib/rules/schedule";
 import { useLoad } from "../../lib/hooks/useLoad";
 import { LessonView } from "../../components/lesson/LessonView";
-import { loadProblems } from "../../lib/content/repository";
 import { platformOf } from "../../lib/practice/platform";
 import { Icon } from "../../components/Icon";
 import { Tag, Callout } from "../../components/common/Controls";
