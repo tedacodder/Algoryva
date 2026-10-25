@@ -80,6 +80,11 @@ export const arrays: LessonV2 = {
     { kind: "trace", q: "For `a = [1, 2, 3]`, what does `a.insert(1, 9)` leave in a?", options: ["[1, 9, 2, 3]", "[9, 1, 2, 3]", "[1, 2, 9, 3]", "[1, 2, 3, 9]"], answer: 0, why: "insert(i, x) puts x at index i and moves the later items one place to the right." },
     { kind: "trace", q: "What does this print? `for i, v in enumerate(['a', 'b']): print(i, v)`", options: ["0 a\n1 b", "1 a\n2 b", "a 0\nb 1", "0 1"], answer: 0, why: "enumerate pairs each item with its index, starting from 0." },
     { kind: "concept", q: "Which operation on a Python list takes the same time whatever its length?", options: ["Reading a[i] by its index", "Inserting at the front with insert(0, x)", "Deleting the middle item with del", "Searching for a value with `in`"], answer: 0, why: "Index access jumps straight to the slot. Insert and del in the middle shift items, and a search may check every item." },
+    { kind: "trace", q: "a = [1, 2, 3]; a[1:1] = [9]. What does print(a) print?", options: ["[1, 9, 2, 3]", "[1, 2, 3, 9]", "[9, 1, 2, 3]", "[1, 2, 9, 3]"], answer: 0, why: "Assigning to an empty slice inserts the value at that position." },
+    { kind: "trace", q: "a = [0] * 3; a[0] = 1. What does print(a) print?", options: ["[1, 0, 0]", "[1, 1, 1]", "[0, 0, 1]", "It raises an error"], answer: 0, why: "Only index 0 changes." },
+    { kind: "trace", q: "grid = [[0] * 2] * 2; grid[0][0] = 5. What does print(grid) print?", options: ["[[5, 0], [5, 0]]", "[[5, 0], [0, 0]]", "[[0, 0], [5, 0]]", "[[5, 0]]"], answer: 0, why: "[[0]*2]*2 makes two references to the same row, so both rows change. Use a list comprehension instead." },
+    { kind: "trace", q: "a = [5, 6]. What does print(a.index(6), 6 in a) print?", options: ["1 True", "0 True", "1 False", "It raises an error"], answer: 0, why: "6 is at index 1, and `in` checks membership." },
+    { kind: "concept", q: "What is the time to read a[i] in a Python list?", options: ["O(1)", "O(n)", "O(log n)", "O(i)"], answer: 0, why: "Lists store items in a contiguous array, so any index is reached directly." },
   ],
   nextNote: "Next, **Sorting Basics** shows how putting items in order unlocks faster searching and simpler logic.",
 };

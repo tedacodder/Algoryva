@@ -162,6 +162,11 @@ export const listsTuples: LessonV2 = {
     { kind: "trace", q: "What is `type((1,)).__name__`?", options: ["int", "list", "tuple", "set"], answer: 2, why: "A trailing comma makes a tuple, even inside parentheses." },
     { kind: "trace", q: "What does `[1, 2, 3][::-1]` give?", options: ["[3, 2, 1]", "[1, 2, 3]", "[2, 1]", "[3, 2]"], answer: 0, why: "A step of -1 walks the list backwards, from the end to the start." },
     { kind: "concept", q: "Why can't a list be used as a dictionary key?", options: ["Lists can change, so their hash could change", "Lists are too large", "Lists are unordered", "Dictionary keys must be numbers"], answer: 0, why: "Dictionary keys must be hashable. A list that can change has no stable hash, so Python refuses it." },
+    { kind: "trace", q: "a = [1, 2]; b = a[:]; b.append(3). What does print(a) show?", options: ["[1, 2]", "[1, 2, 3]", "[3, 1, 2]", "It raises an error"], answer: 0, why: "Slicing makes a copy, so appending to b does not change a." },
+    { kind: "trace", q: "t = (1, [2]); t[1].append(3). What does print(t) show?", options: ["(1, [2, 3])", "(1, [2])", "It raises an error", "(1, 2, 3)"], answer: 0, why: "The tuple itself cannot change, but the list inside it can." },
+    { kind: "trace", q: "What does print([i*i for i in range(4) if i % 2 == 0]) print?", options: ["[0, 4]", "[0, 1, 4, 9]", "[1, 9]", "[0, 2]"], answer: 0, why: "The filter keeps 0 and 2, and their squares are 0 and 4." },
+    { kind: "trace", q: "a = [3, 1, 2]. What does print(a.sort(), a) print?", options: ["None [1, 2, 3]", "[1, 2, 3] [1, 2, 3]", "[3, 1, 2] [3, 1, 2]", "It raises an error"], answer: 0, why: "sort() works in place and returns None, so the first value printed is None." },
+    { kind: "concept", q: "Which list method removes an element and returns it?", options: ["pop()", "append()", "extend()", "sort()"], answer: 0, why: "pop() removes the item at an index (the last by default) and returns it." },
   ],
   nextNote: "Next, **Sets & Dictionaries** give you containers that look things up by value in constant time.",
 };

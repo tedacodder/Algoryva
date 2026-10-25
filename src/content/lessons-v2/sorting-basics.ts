@@ -79,6 +79,11 @@ export const sortingBasics: LessonV2 = {
     { kind: "trace", q: "What does `sorted([(2, 'b'), (1, 'z'), (2, 'a')])` return?", options: ["[(1, 'z'), (2, 'a'), (2, 'b')]", "[(2, 'a'), (2, 'b'), (1, 'z')]", "[(1, 'z'), (2, 'b'), (2, 'a')]", "[(2, 'b'), (2, 'a'), (1, 'z')]"], answer: 0, why: "Tuples compare element by element: first by the number, then by the letter." },
     { kind: "trace", q: "For `a = [3, 1, 2]`, what does `sorted(a, key=lambda x: -x)` return?", options: ["[3, 2, 1]", "[1, 2, 3]", "[-3, -1, -2]", "[3, 1, 2]"], answer: 0, why: "The key is used only to compare items; negating each number reverses the order." },
     { kind: "concept", q: "Why does sorting help when you check a list for duplicates?", options: ["Equal values end up next to each other, so one pass finds repeats", "It removes duplicates automatically", "It turns the list into a set", "It makes the list shorter"], answer: 0, why: "Once equal items are neighbours, comparing each item with the one before it finds every repeat." },
+    { kind: "trace", q: "What does print(sorted(['bb', 'a', 'ccc'], key=len)) print?", options: ["['a', 'bb', 'ccc']", "['ccc', 'bb', 'a']", "['bb', 'a', 'ccc']", "['a', 'ccc', 'bb']"], answer: 0, why: "key=len sorts by length: 1, 2, 3." },
+    { kind: "trace", q: "nums = [5, 2, 9]; nums.sort(reverse=True). What does print(nums[0]) print?", options: ["9", "2", "5", "None"], answer: 0, why: "reverse=True puts the largest value first." },
+    { kind: "concept", q: "Why does sorting help find the closest pair of values?", options: ["After sorting, the closest pair sits next to each other", "Sorting removes duplicates", "Closest values are always at the ends", "Sorting makes the numbers smaller"], answer: 0, why: "In sorted order, the smallest gap between two values is always between neighbours." },
+    { kind: "complexity", q: "Python's built-in sort on n items: what is the running time?", options: ["O(n log n)", "O(n\u00b2)", "O(n)", "O(log n)"], answer: 0, why: "Timsort is a comparison sort with O(n log n) worst-case time." },
+    { kind: "trace", q: "What does print(sorted([3, 1, 2])[1]) print?", options: ["2", "1", "3", "It raises an error"], answer: 0, why: "sorted gives [1, 2, 3]; index 1 is 2." },
   ],
   nextNote: "Next, **Binary Search** uses the sorted order you just learned to find items in a few dozen steps.",
 };

@@ -159,6 +159,11 @@ export const pythonBasics: LessonV2 = {
     { kind: "trace", q: "What does `print(2 ** 10, 2 ** -1)` print?", options: ["1024 0.5", "1024 0", "1000 0.5", "20 0.5"], answer: 0, why: "`**` is exponentiation; a negative exponent gives a float, so 2 ** -1 is 0.5." },
     { kind: "trace", q: "After `x = 5` and then `x += 2 * 3`, what is x?", options: ["11", "21", "8", "15"], answer: 0, why: "The multiplication happens first: 2 * 3 is 6, and 5 + 6 is 11." },
     { kind: "concept", q: "What type is the result of `int('12') + float('0.5')`?", options: ["int", "float", "str", "It raises an error"], answer: 1, why: "Adding an int and a float gives a float, so the result is 12.5." },
+    { kind: "trace", q: "What does print(10 // 3, 10 % 3, -10 // 3) print?", options: ["3 1 -4", "3 1 -3", "3 -1 -4", "4 1 -4"], answer: 0, why: "Floor division rounds toward negative infinity, so -10 // 3 is -4, not -3." },
+    { kind: "trace", q: "x = 'hello'. What does print(x[1:-1]) print?", options: ["ell", "hell", "ello", "h"], answer: 0, why: "Index 1 up to but not including the last index: 'e', 'l', 'l'." },
+    { kind: "trace", q: "What does print(bool(''), bool('0'), bool([])) print?", options: ["False True False", "False False False", "True True True", "False True True"], answer: 0, why: "Only empty containers and zero-like values are false; the string '0' is not empty." },
+    { kind: "concept", q: "Why can `a is b` be False even when `a == b` is True, for two equal lists?", options: ["'is' checks identity (same object); '==' checks equal values", "'==' compares memory addresses", "'is' compares values only", "Lists can never be equal"], answer: 0, why: "Two separate lists can hold the same values without being the same object." },
+    { kind: "trace", q: "What does print(round(1.23456, 2), 7 / 2) print?", options: ["1.23 3.5", "1.2 3.5", "1.23 3", "1.23 3.50"], answer: 0, why: "round keeps two decimals, and / always gives a float." },
   ],
   nextNote: "Next, **Lists & Tuples** and **Sets & Dictionaries** introduce the containers you will use in every problem.",
 };

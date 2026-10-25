@@ -152,6 +152,11 @@ export const setsDicts: LessonV2 = {
     { kind: "trace", q: "With `d = {'a': 1}`, what does `d.get('b', 0)` return?", options: ["0", "None", "1", "It raises a KeyError"], answer: 0, why: ".get returns the default when the key is missing, instead of raising an error." },
     { kind: "trace", q: "What is `len({'a': 1, 'a': 2})`?", options: ["1", "2", "0", "It raises an error"], answer: 0, why: "A repeated key keeps only its last value, so the dictionary has one entry." },
     { kind: "concept", q: "What is the type of `{}` in Python?", options: ["dict", "set", "tuple", "list"], answer: 0, why: "Empty braces make an empty dictionary. An empty set needs set()." },
+    { kind: "trace", q: "s = {1, 2, 3}; s.discard(9); s.add(2). What is len(s)?", options: ["3", "4", "2", "It raises an error"], answer: 0, why: "discard ignores missing values and add ignores duplicates, so the set still has three items." },
+    { kind: "trace", q: "d = {}; d.setdefault('a', []).append(1); d.setdefault('a', []).append(2). What does print(d) show?", options: ["{'a': [1, 2]}", "{'a': [2]}", "{'a': [1]}", "{}"], answer: 0, why: "setdefault returns the existing list the second time, so both values go into it." },
+    { kind: "trace", q: "What does print({1, 2} | {2, 3}, {1, 2} & {2, 3}) print?", options: ["{1, 2, 3} {2}", "{1, 2, 3} {1, 3}", "{2} {1, 2, 3}", "{1, 2, 3} {1, 2}"], answer: 0, why: "| is union and & is intersection." },
+    { kind: "trace", q: "What does print(list({'b': 1, 'a': 2})) print?", options: ["['b', 'a']", "['a', 'b']", "[1, 2]", "It raises an error"], answer: 0, why: "Dictionaries keep insertion order, so the keys come out as they were added." },
+    { kind: "concept", q: "Why can a tuple of numbers be a dictionary key but a list cannot?", options: ["Tuples are immutable and hashable; a list can change, so it has no stable hash", "Tuples are faster to look up", "Lists are not iterable", "It is a syntax rule only"], answer: 0, why: "Dictionary keys must have a hash that never changes, which only immutable values can guarantee." },
   ],
   nextNote: "Next, **Built-ins, Classes & Iterators** collects the standard tools that save you from writing these loops by hand.",
 };

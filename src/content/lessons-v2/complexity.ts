@@ -83,6 +83,11 @@ export const complexity: LessonV2 = {
     { kind: "concept", q: "What does O(1) time mean?", options: ["Time does not grow with the input size", "It runs exactly one step", "It takes one second", "It uses one line of code"], answer: 0, why: "O(1) describes a cost that stays the same however large the input is." },
     { kind: "complexity", q: "With n = 10\u2076 and a 1-second limit in Python, which is most likely to pass?", options: ["O(n\u00b2)", "O(n log n)", "O(2\u207f)", "O(n!)"], answer: 1, why: "About 2 \u00d7 10\u2077 operations fit in a second; n\u00b2 would need about 10\u00b9\u00b2 operations." },
     { kind: "trace", q: "For n = 4, how many times does the inner body of two nested loops over `range(n)` run?", options: ["4", "8", "16", "10"], answer: 2, why: "Each of the 4 outer steps runs the inner loop 4 times: 4 \u00d7 4 = 16, which is n\u00b2." },
+    { kind: "concept", q: "For n = 100000, which is faster: O(n log n) or O(n\u00b2)?", options: ["O(n log n)", "O(n\u00b2)", "They take the same time", "It depends on the language"], answer: 0, why: "About 1.7 million steps against 10 billion; the gap grows with n." },
+    { kind: "concept", q: "What is the amortized cost of appending to a Python list?", options: ["O(1)", "O(n)", "O(log n)", "O(n\u00b2)"], answer: 0, why: "Occasional resizes are spread over many cheap appends, so the average per append is constant." },
+    { kind: "complexity", q: "Checking whether x is in a Python list of n items, in the worst case?", options: ["O(n)", "O(1)", "O(log n)", "O(n\u00b2)"], answer: 0, why: "A list is searched item by item." },
+    { kind: "complexity", q: "Checking whether x is in a Python set, on average?", options: ["O(1)", "O(n)", "O(log n)", "O(n log n)"], answer: 0, why: "A set uses hashing, so one lookup is expected to be constant time." },
+    { kind: "concept", q: "Which of these is O(n log n) and common in contests?", options: ["sorted() on a list", "Searching a list for a value", "Summing a list", "Reading one dictionary key"], answer: 0, why: "Comparison sorting takes O(n log n) in the general case." },
   ],
   nextNote: "Next, **Arrays, Lists and Matrices** introduces the structure whose costs you will count constantly.",
 };
