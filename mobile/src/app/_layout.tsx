@@ -12,6 +12,7 @@ import { FONT_FILES } from "../lib/ui/fontFiles";
 import { makeStyles, ThemeProvider, useTheme, type Preference } from "../lib/ui/theme";
 import { LIGHT } from "../lib/ui/palette";
 import { startSync } from "../lib/sync/runtime";
+import { PythonHost } from "../components/python/PythonHost";
 
 // Keep the splash until the fonts, the saved session and the content are ready, so no screen flashes unstyled.
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -70,6 +71,8 @@ function Themed({ fontsLoaded }: { fontsLoaded: boolean }) {
   return (
     <>
       <StatusBar style={mode === "dark" ? "light" : "dark"} />
+      <>
+      <PythonHost />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: palette.surface },
@@ -90,6 +93,7 @@ function Themed({ fontsLoaded }: { fontsLoaded: boolean }) {
         <Stack.Screen name="settings/index" options={{ title: "Settings" }} />
         <Stack.Screen name="python/runner" options={{ title: "Python Runner" }} />
       </Stack>
+      </>
     </>
   );
 }

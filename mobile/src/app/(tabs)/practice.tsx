@@ -67,7 +67,13 @@ export default function PracticeTab() {
           </View>
         </View>
       }
-      ListEmptyComponent={<Empty title="No problems here" text="Try another filter." />}
+      ListEmptyComponent={
+        data.data.problems.length === 0 ? (
+          <Empty title="No problems downloaded yet" text="Connect to the internet and restart the app. Problems are downloaded with the lessons." />
+        ) : (
+          <Empty title="No problems here" text="Try another filter." />
+        )
+      }
       renderItem={({ item }) => {
         const platform = item.kind === "EXTERNAL" ? platformOf(item.externalUrl) : null;
         const isSolved = solvedSet.has(item.id);
