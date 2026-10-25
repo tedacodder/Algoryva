@@ -95,6 +95,7 @@ model User {
   revisitEmails    Boolean @default(true)
   revisitEmailedAt DateTime?
   revisits         Revisit[]
+  syncEvents       SyncEvent[]
   tokens       VerificationToken[]
   contestEntries ContestEntry[]
   quizResults  QuizResult[]
@@ -411,4 +412,19 @@ model Revisit {
   @@unique([userId, problemId])
   @@unique([userId, outsideKey])
   @@index([userId, dueAt])
+}
+
+/// Idempotency record for the mobile API (/api/v1/sync/push and /api/v1/submissions). One row per client-generated
+/// event id, per user. `payloadHash` identifies the content so an id reused for different content is a conflict, and
+/// `outcome` is the final result that a duplicate request gets back. Nothing on the website reads or writes it.
+model SyncEvent {
+  userId      String
+  id          String
+  type        String
+  payloadHash String
+  outcome     Json
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
 }

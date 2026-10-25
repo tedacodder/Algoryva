@@ -1,0 +1,26 @@
+# Maestro flow: study offline. Run with the phone in airplane mode (see e2e/run-offline.sh).
+# Precondition: the app is installed, the content has been downloaded once (online), and the account is signed in.
+appId: com.tedacodder.algoryva
+---
+- launchApp:
+    clearState: false
+- assertVisible: "Algoryva"
+- tapOn: "Learn: Topics and lessons"
+- tapOn: "Python Basics, FOUNDATION"
+- assertVisible: "Lesson"
+- tapOn: "Mark this topic complete"
+- assertVisible: "Completed"
+- back
+- tapOn: "Mistakes: What went wrong and how to spot it"
+- tapOn: "Log a mistake"
+- tapOn: "Edge case"
+- tapOn: "Outside the site"
+- inputText: "Two Sum offline test"
+- tapOn: "What did you misunderstand?"
+- inputText: "I forgot the empty input case"
+- tapOn: "What is the correct idea?"
+- inputText: "Check for empty input first"
+- tapOn: "How will you recognise it next time?"
+- inputText: "Any array problem with no elements"
+- tapOn: "Save mistake"
+- assertVisible: "Saved on this device. It will sync when you are online."
