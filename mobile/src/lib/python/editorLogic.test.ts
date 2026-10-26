@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { applyNewline, insertAt, lineNumbers, nextIndent } from "./editorLogic";
+import { applyNewline, displayText, insertAt, lineNumbers, nextIndent } from "./editorLogic";
 
 describe("automatic indentation", () => {
   it("keeps the indentation of the previous line", () => assert.equal(nextIndent("    x = 1"), "    "));
@@ -34,5 +34,17 @@ describe("line numbers", () => {
   it("numbers every line, including an empty last line", () => {
     assert.equal(lineNumbers("a\nb\n"), "1\n2\n3");
     assert.equal(lineNumbers(""), "1");
+  });
+});
+
+
+describe("coloured layer matches the typing field", () => {
+  it("keeps a trailing newline visible, so the layers stay aligned after Enter", () => {
+    assert.equal(displayText("x = 1\n"), "x = 1\n ");
+    assert.equal(displayText("x = 1\n\n"), "x = 1\n\n ");
+  });
+  it("leaves text that does not end in a newline unchanged", () => {
+    assert.equal(displayText("x = 1"), "x = 1");
+    assert.equal(displayText(""), " ");
   });
 });

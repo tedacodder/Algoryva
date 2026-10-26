@@ -48,3 +48,14 @@ export async function refreshContent(db: SqlDb, client: ContentClient, now: () =
     throw e;
   }
 }
+
+/**
+ * Downloads the full content and stores it, ignoring any stored copy. Used by Settings to recover from a stale copy, and to show
+ * exactly what the phone received.
+ */
+export async function forceFullRefresh(db: SqlDb, client: ContentClient, now: () => Date = () => new Date()): Promise<{ topics: number; problems: number; version: string }> {
+  const r = await client.getContent(undefined);
+  if (r.status !== "ok") throw new Error("The server did not send the content.");
+  await storeContentSnapshot(db, { etag: r.etag, data: r.data }, now());
+  return { topics: r.data.topics.length, problems: r.data.problems.length, version: r.data.version };
+}

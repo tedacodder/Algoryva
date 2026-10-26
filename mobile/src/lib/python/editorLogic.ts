@@ -36,3 +36,11 @@ export function lineNumbers(text: string): string {
   const n = text.split("\n").length;
   return Array.from({ length: n }, (_, i) => String(i + 1)).join("\n");
 }
+
+/**
+ * The text shown in the coloured layer under the typing field. A trailing newline is kept visible by adding a space: otherwise the
+ * coloured layer drops the empty last line and the two layers fall out of step, which blurs the text.
+ */
+export function displayText(code: string): string {
+  return code.endsWith("\n") || code.length === 0 ? `${code} ` : code;
+}

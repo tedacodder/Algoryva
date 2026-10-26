@@ -9,4 +9,5 @@ export const PYTHON_FILES: { name: string; bytes: number; asset: number }[] = [
   { name: "pyodide.asm.wasm", bytes: 9598218, asset: require("../../../assets/python/pyodide.asm.wasm.bin") },
   { name: "python_stdlib.zip", bytes: 2545637, asset: require("../../../assets/python/python_stdlib.zip.bin") },
   { name: "pyodide-lock.json", bytes: 119077, asset: require("../../../assets/python/pyodide-lock.json.bin") },
+  { name: "editor.bundle.js", bytes: 434478, asset: require("../../../assets/python/editor.bundle.js.bin") },
 ];
