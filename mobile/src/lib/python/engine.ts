@@ -7,6 +7,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import { PYTHON_FILES } from "./pythonFiles";
 import { copyPercent, INLINED_FILES } from "./startup";
 import { runnerHtml } from "./page";
+import { editorHtml } from "./editorPage";
 import { INITIAL_ENGINE, reduceEngine, type EngineState, type PageMessage } from "./engineState";
 
 const DIR = `${FileSystem.documentDirectory}python/`;
@@ -51,6 +52,10 @@ function prepare(): Promise<string> {
         }
         done += f.bytes;
         patch({ copyPct: copyPercent(done, total) });
+      }
+      const editorPath = `${DIR}editor.html`;
+      if (!(await FileSystem.getInfoAsync(editorPath)).exists) {
+        await FileSystem.writeAsStringAsync(editorPath, editorHtml(DIR));
       }
       if (!(await FileSystem.getInfoAsync(pagePath)).exists) {
         const moduleSource = await FileSystem.readAsStringAsync(`${DIR}pyodide.asm.mjs`);

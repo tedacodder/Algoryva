@@ -13,6 +13,10 @@ import { makeStyles, ThemeProvider, useTheme, type Preference } from "../lib/ui/
 import { LIGHT } from "../lib/ui/palette";
 import { startSync } from "../lib/sync/runtime";
 import { PythonHost } from "../components/python/PythonHost";
+import { installCrashRecorder } from "../lib/diagnostics/install";
+
+// Record uncaught errors on this phone (nothing is sent anywhere automatically).
+installCrashRecorder();
 
 // Keep the splash until the fonts, the saved session and the content are ready, so no screen flashes unstyled.
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
