@@ -176,7 +176,7 @@ export const HANDLERS: Record<string, Handler<unknown>> = {
       // Problems on this site are marked solved only by the judge (POST /submissions), never by a client event.
       if (problem.kind !== "EXTERNAL") return reject("not_applicable");
       if (p.solved) {
-        const { count } = await tx.problemSolve.createMany({ data: [{ userId, problemId: problem.id }], skipDuplicates: true });
+        const { count } = await tx.problemSolve.createMany({ data: [{ userId, problemId: problem.id, verification: "SELF_REPORTED" }], skipDuplicates: true });
         if (count > 0) await tx.activity.create({ data: { userId, type: "problem_solved" } });
       } else {
         await tx.problemSolve.deleteMany({ where: { userId, problemId: problem.id } });

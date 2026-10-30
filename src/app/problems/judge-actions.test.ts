@@ -32,6 +32,7 @@ vi.mock("@/lib/solve", () => ({ awardSolve: mocks.awardSolve, awardContestSolve:
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { checkOutput } from "./judge-actions";
+import { NOT_RECORDED_CONTEST, NOT_RECORDED_PRACTICE } from "@/lib/solve-messages";
 
 function submission(outputs: string[], extra: Record<string, string> = {}) {
   const f = new FormData();
@@ -216,21 +217,26 @@ describe("checkOutput (AUD-001 and AUD-004)", () => {
       expect(res?.allPass).toBe(true);
       expect(res?.note).toBeUndefined();
       expect(mocks.awardSolve).toHaveBeenCalledTimes(1);
-      expect(mocks.awardSolve).toHaveBeenCalledWith("user-1", "p1");
+      expect(mocks.awardSolve).toHaveBeenCalledWith("user-1", "p1", "OUTPUT_MATCHED");
       expect(mocks.awardContestSolve).not.toHaveBeenCalled();
     });
 
     it("the awarded user and problem come from the session and the database row, not from request fields", async () => {
       await checkOutput(undefined, submission([SAMPLE_EXPECTED, SECRET_EXPECTED], { userId: "attacker", problemId: "p1" }));
-      expect(mocks.awardSolve).toHaveBeenCalledWith("user-1", "p1");
+      expect(mocks.awardSolve).toHaveBeenCalledWith("user-1", "p1", "OUTPUT_MATCHED");
     });
 
     it("a retried or duplicated submission only ever reaches the idempotent award helper", async () => {
       mocks.awardSolve.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
       const a = await checkOutput(undefined, submission([SAMPLE_EXPECTED, SECRET_EXPECTED]));
       const b = await checkOutput(undefined, submission([SAMPLE_EXPECTED, SECRET_EXPECTED]));
-      expect(a).toEqual(b);
-      expect(mocks.awardSolve.mock.calls).toEqual([["user-1", "p1"], ["user-1", "p1"]]);
+      if (!a || !b) throw new Error("checkOutput returned nothing");
+      // The grading is identical. Only the note differs: the first pass records the solve, and the retry is told it was already counted.
+      expect(b.results).toEqual(a.results);
+      expect(b.allPass).toBe(a.allPass);
+      expect(a.note).toBeUndefined();
+      expect(b.note).toBe(NOT_RECORDED_PRACTICE);
+      expect(mocks.awardSolve.mock.calls).toEqual([["user-1", "p1", "OUTPUT_MATCHED"], ["user-1", "p1", "OUTPUT_MATCHED"]]);
       // Mock-level only: that the second call creates no row and no activity is asserted in src/lib/solve.test.ts.
     });
 
@@ -282,8 +288,25 @@ describe("checkOutput (AUD-001 and AUD-004)", () => {
       expect(res?.note).toBeUndefined();
       expect(mocks.contestFindFirst.mock.calls[0][0].where).toEqual({ id: "c1", status: "PUBLISHED" });
       expect(mocks.contestProblemFindUnique.mock.calls[0][0].where).toEqual({ contestId_problemId: { contestId: "c1", problemId: "p1" } });
-      expect(mocks.awardContestSolve).toHaveBeenCalledWith("e1", "user-1", "p1");
+      expect(mocks.awardContestSolve).toHaveBeenCalledWith("e1", "user-1", "p1", "OUTPUT_MATCHED");
       expect(mocks.awardSolve).not.toHaveBeenCalled();
+    });
+
+    // Regression for the missing-note race: a passing contest submission whose write records nothing (the timer ended between the
+    // checks and the write, or the solve was already counted) used to return no note, so the UI could show a pass with no solve.
+    it("regression: a pass whose contest write records nothing always carries the not-recorded note", async () => {
+      mocks.awardContestSolve.mockResolvedValueOnce(false);
+      const res = await checkOutput(undefined, passing());
+      expect(res?.allPass).toBe(true);
+      expect(res?.note).toBe(NOT_RECORDED_CONTEST);
+      expect(mocks.awardContestSolve).toHaveBeenCalledTimes(1);
+    });
+
+    it("regression: a pass whose contest write records a solve carries no note", async () => {
+      mocks.awardContestSolve.mockResolvedValueOnce(true);
+      const res = await checkOutput(undefined, passing());
+      expect(res?.allPass).toBe(true);
+      expect(res?.note).toBeUndefined();
     });
 
     it("a problem outside that contest awards nothing, and does not fall back to a practice solve", async () => {

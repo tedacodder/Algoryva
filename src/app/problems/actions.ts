@@ -14,7 +14,7 @@ export async function toggleSolved(form: FormData) {
   const p = await db.problem.findFirst({ where: { id: String(form.get("problemId") ?? ""), status: "PUBLISHED" }, select: { id: true, kind: true } });
   if (!p) return;
   const removed = await db.problemSolve.deleteMany({ where: { userId: user.id, problemId: p.id } });
-  if (removed.count === 0 && p.kind === "EXTERNAL") await awardSolve(user.id, p.id);
+  if (removed.count === 0 && p.kind === "EXTERNAL") await awardSolve(user.id, p.id, "SELF_REPORTED");
   revalidatePath("/problems", "layout");
   revalidatePath("/dashboard");
 }

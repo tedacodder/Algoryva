@@ -39,7 +39,7 @@ describe("toggleSolved (AUD-004)", () => {
   it("awards an EXTERNAL problem through the idempotent path", async () => {
     mocks.problemFindFirst.mockResolvedValue({ id: "ext-1", kind: "EXTERNAL" });
     await toggleSolved(form({ problemId: "ext-1" }));
-    expect(mocks.awardSolve).toHaveBeenCalledWith("user-1", "ext-1");
+    expect(mocks.awardSolve).toHaveBeenCalledWith("user-1", "ext-1", "SELF_REPORTED");
   });
 
   it("lets a learner unmark an INTERNAL solve that was earned by checkOutput, and grants nothing", async () => {
@@ -82,7 +82,7 @@ describe("toggleSolved (AUD-004)", () => {
     mocks.problemFindFirst.mockResolvedValue({ id: "ext-1", kind: "EXTERNAL" });
     await Promise.all(Array.from({ length: 4 }, () => toggleSolved(form({ problemId: "ext-1" }))));
     expect(mocks.awardSolve).toHaveBeenCalledTimes(4);
-    expect(mocks.awardSolve).toHaveBeenCalledWith("user-1", "ext-1");
+    expect(mocks.awardSolve).toHaveBeenCalledWith("user-1", "ext-1", "SELF_REPORTED");
     // Mock-level only: one row and one activity is asserted in src/lib/solve.test.ts; real concurrency needs PostgreSQL.
   });
 

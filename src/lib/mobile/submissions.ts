@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { ApiError } from "@/lib/api/errors";
 import { checkOrThrow, limitOrThrow } from "@/lib/api/limits";
 import { gradeOutput } from "@/lib/judge";
+import { NOT_RECORDED_PRACTICE } from "@/lib/solve-messages";
 import { HOUR, record } from "@/lib/rate-limit";
 import { canonicalJson, sha256Hex } from "@/lib/mobile/canonical";
 
@@ -95,15 +96,17 @@ export async function submit(userId: string, input: SubmissionInput): Promise<Su
       if (!again) throw new Error("sync event vanished");
       return replay(again, payloadHash, input.clientId);
     }
+    let txNote = note;
     if (counts) {
       // As on the website: a full verified match passes a revisit that is already due, then awards the solve once.
       await tx.revisit.updateMany({ where: { userId, problemId: problem.id, passedAt: null, dueAt: { lte: now } }, data: { passedAt: now, dueAt: null, passedBy: "judge" } });
-      const { count } = await tx.problemSolve.createMany({ data: [{ userId, problemId: problem.id }], skipDuplicates: true });
+      const { count } = await tx.problemSolve.createMany({ data: [{ userId, problemId: problem.id, verification: "OUTPUT_MATCHED" }], skipDuplicates: true });
       if (count > 0) await tx.activity.create({ data: { userId, type: "problem_solved" } });
+      else txNote = NOT_RECORDED_PRACTICE; // same explanation the website gives for an already-counted pass
     }
     const solved = counts ? true : (await tx.problemSolve.findUnique({ where: { userId_problemId: { userId, problemId: problem.id } }, select: { userId: true } })) !== null;
-    const stored: Stored = { verdict, allPass, solved, results: stripActual(results), ...(note ? { note } : {}) };
+    const stored: Stored = { verdict, allPass, solved, results: stripActual(results), ...(txNote ? { note: txNote } : {}) };
     await tx.syncEvent.update({ where: key, data: { outcome: stored as unknown as Prisma.InputJsonValue } });
-    return { clientId: input.clientId, verdict, allPass, solved, results, ...(note ? { note } : {}) };
+    return { clientId: input.clientId, verdict, allPass, solved, results, ...(txNote ? { note: txNote } : {}) };
   });
 }

@@ -25,6 +25,6 @@ export async function markSolvedInContest(form: FormData) {
   // kind and status come from the database, never from the form.
   const cp = await db.contestProblem.findUnique({ where: { contestId_problemId: { contestId, problemId } }, select: { problem: { select: { kind: true, status: true } } } });
   if (!cp || cp.problem.kind !== "EXTERNAL" || cp.problem.status !== "PUBLISHED") return;
-  await awardContestSolve(state.entry.id, user.id, problemId);
+  await awardContestSolve(state.entry.id, user.id, problemId, "SELF_REPORTED");
   revalidatePath(`/contests/${c.slug}`);
 }

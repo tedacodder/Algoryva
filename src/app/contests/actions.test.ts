@@ -39,7 +39,7 @@ describe("markSolvedInContest (AUD-004)", () => {
 
   it("awards a self-reported EXTERNAL contest problem while the entry timer is running", async () => {
     await markSolvedInContest(form(valid));
-    expect(mocks.awardContestSolve).toHaveBeenCalledWith("e1", "user-1", "p1");
+    expect(mocks.awardContestSolve).toHaveBeenCalledWith("e1", "user-1", "p1", "SELF_REPORTED");
     expect(mocks.contestFindFirst.mock.calls[0][0].where).toEqual({ id: "c1", status: "PUBLISHED" });
   });
 
@@ -90,7 +90,7 @@ describe("markSolvedInContest (AUD-004)", () => {
   it("the entry used for the award comes from the session user, not from the form", async () => {
     await markSolvedInContest(form({ ...valid, userId: "attacker", entryId: "e-attacker" }));
     expect(mocks.contestState).toHaveBeenCalledWith("c1", 60, "user-1");
-    expect(mocks.awardContestSolve).toHaveBeenCalledWith("e1", "user-1", "p1");
+    expect(mocks.awardContestSolve).toHaveBeenCalledWith("e1", "user-1", "p1", "SELF_REPORTED");
   });
 
   it("repeated and concurrent requests all go through the idempotent helper", async () => {

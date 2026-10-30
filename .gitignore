@@ -6,3 +6,17 @@ next-env.d.ts
 
 .vercel/
 test-results/
+
+# Generated test-only Prisma client (scripts/generate-test-client.mjs)
+prisma/.generated/
+# Local secrets and update backups (never commit these)
+.env.*
+!.env.example
+.codeforces-update-backup-*/
+.group-classroom-backup-*/
+.bot-ui-backup-*/
+.classroom-backup-*/
+bot-python-backup-*/
+bot-js/node_modules/
+bot-js/.classroom-backup-*/
+bot/.venv/
