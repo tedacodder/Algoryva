@@ -35,6 +35,9 @@
   ],
   "exclude": [
     "node_modules",
-    "mobile"
+    "mobile",
+    "tests/integration",
+    "bot",
+    "bot-js"
   ]
 }
