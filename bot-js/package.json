@@ -1,0 +1,17 @@
+{
+  "name": "codeforces-bot-js",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "dev": "node src/dev.js",
+    "start": "node src/dev.js"
+  },
+  "dependencies": {
+    "grammy": "^1.36.0"
+  }
+}

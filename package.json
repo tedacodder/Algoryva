@@ -9,12 +9,14 @@
     "prebuild": "prisma generate",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/generate-test-client.mjs && tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:test:migrate": "bash scripts/apply-test-migrations.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -32,12 +34,15 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",
+    "@prisma/adapter-pg": "^6.19.3",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",
+    "pg": "^8.23.1",
     "postcss": "^8.4.47",
     "prisma": "^6.0.0",
     "tailwindcss": "^3.4.14",

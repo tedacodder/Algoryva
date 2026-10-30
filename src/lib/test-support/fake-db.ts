@@ -20,9 +20,11 @@ const UNIQUE: Record<string, string[][]> = {
   topicProgress: [["userId", "topicId"]], reviewItem: [["id"], ["userId", "topicId"]], quizResult: [["userId", "topicId"]],
   problemSolve: [["userId", "problemId"]], activity: [["id"]], mistake: [["id"]], note: [["id"]],
   revisit: [["id"], ["userId", "problemId"], ["userId", "outsideKey"]], syncEvent: [["userId", "id"]], authAttempt: [["id"]],
+  telegramLink: [["userId"], ["telegramHash"]], telegramLinkChallenge: [["id"], ["tokenHash"]], botNonce: [["nonce"]],
+  telegramRecipient: [["id"], ["chatHash"]], notificationDelivery: [["id"], ["recipientId", "kind", "key"]], cfCache: [["key"]], referralCode: [["userId"], ["code"]],
 };
-const HAS_ID = new Set(["session", "reviewItem", "activity", "mistake", "note", "revisit", "authAttempt", "user", "topic", "problem"]);
-const CASCADE_FROM_USER = ["session", "topicProgress", "reviewItem", "quizResult", "problemSolve", "activity", "mistake", "note", "revisit", "syncEvent"];
+const HAS_ID = new Set(["session", "reviewItem", "activity", "mistake", "note", "revisit", "authAttempt", "user", "topic", "problem", "telegramLinkChallenge", "telegramRecipient", "notificationDelivery", "referralCode"]);
+const CASCADE_FROM_USER = ["session", "topicProgress", "reviewItem", "quizResult", "problemSolve", "activity", "mistake", "note", "revisit", "syncEvent", "telegramLink", "telegramRecipient", "referralCode"];
 export const TABLES = Object.keys(UNIQUE);
 
 const isPlain = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !(v instanceof Date) && !Array.isArray(v);
@@ -74,10 +76,11 @@ class Table {
   private build(data: Row): Row {
     const row: Row = { ...data };
     if (HAS_ID.has(this.name) && row.id === undefined) row.id = crypto.randomUUID();
-    if (row.createdAt === undefined && ["session", "activity", "mistake", "note", "syncEvent", "authAttempt", "user", "revisit"].includes(this.name)) row.createdAt = new Date();
+    if (row.createdAt === undefined && ["session", "activity", "mistake", "note", "syncEvent", "authAttempt", "user", "revisit", "telegramLink", "telegramLinkChallenge", "botNonce", "telegramRecipient", "notificationDelivery", "referralCode", "cfCache"].includes(this.name)) row.createdAt = new Date();
     if (this.name === "problemSolve" && row.solvedAt === undefined) row.solvedAt = new Date();
     if (this.name === "quizResult" && row.attempts === undefined) row.attempts = 1; // @default(1) in the schema
     if (this.name === "user") for (const [k, v] of Object.entries({ role: "USER", suspended: false, preferredLanguage: "python", emailVerifiedAt: null, pendingEmail: null })) if (row[k] === undefined) row[k] = v; // schema defaults
+    if (this.name === "telegramLinkChallenge" && row.usedAt === undefined) row.usedAt = null; // Postgres stores a missing usedAt as NULL, and `usedAt: null` must match it
     if (this.name === "revisit") for (const k of ["problemId", "outsideKey", "outsideTitle", "outsideUrl", "dueAt", "passedAt", "passedBy", "note"]) if (row[k] === undefined) row[k] = null;
     return row;
   }

@@ -16,6 +16,7 @@ import { createMobileSession } from "@/lib/api/mobile-auth";
 import { POST } from "@/app/api/v1/submissions/route";
 import { NO_HIDDEN_NOTE, NO_TESTS_NOTE, MAX_OUTPUT_CHARS, gradeTests, submit } from "@/lib/mobile/submissions";
 import { checkOutput } from "@/app/problems/judge-actions";
+import { NOT_RECORDED_PRACTICE } from "@/lib/solve-messages";
 
 const HIDDEN_IN = "HIDDEN-INPUT-canary-5521", HIDDEN_OUT = "HIDDEN-EXPECTED-canary-5521";
 const CID = () => crypto.randomUUID();
@@ -271,7 +272,9 @@ describe("parity with the website's checkOutput (same grading, same effects)", (
       // the website's note (when it shows one) is the app's note
       if (web?.note) expect(mobile.note).toBe(web.note);
       // and the app's verdict is consistent with the website's outcome
-      expect(mobile.verdict === "accepted").toBe(Boolean(web?.allPass && !web?.note));
+      // The already-counted note explains a pass that changes nothing; it does not change the verdict.
+      const verdictNote = web?.note && web.note !== NOT_RECORDED_PRACTICE ? web.note : undefined;
+      expect(mobile.verdict === "accepted").toBe(Boolean(web?.allPass && !verdictNote));
     });
   }
 

@@ -53,6 +53,15 @@ enum SubmissionStatus {
   RUNTIME_ERROR
   COMPILE_ERROR
 }
+/// How a solve was established. OUTPUT_MATCHED: pasted output matched every server-side test, including a hidden one.
+/// SELF_REPORTED: the learner marked an external problem solved (external problems can never be judged).
+/// LEGACY_UNVERIFIED: recorded before this column existed, or otherwise not provably either of the above. Never ranked as verified.
+enum SolveVerification {
+  OUTPUT_MATCHED
+  SELF_REPORTED
+  LEGACY_UNVERIFIED
+}
+
 enum UpsolveReason {
   COULD_NOT_SOLVE
   SOLVED_AFTER_EDITORIAL
@@ -99,6 +108,13 @@ model User {
   tokens       VerificationToken[]
   contestEntries ContestEntry[]
   quizResults  QuizResult[]
+  telegramLink TelegramLink?
+  challengeAssignments ChallengeAssignment[]
+  telegramRecipients TelegramRecipient[]
+  referralCode ReferralCode?
+  botRewards BotReward[]
+  clubMembership ClubMembership?
+  ledClubs Club[]
 }
 
 model Session {
@@ -190,6 +206,7 @@ model Problem {
   testCases  TestCase[]
   submissions Submission[]
   mistakes   Mistake[]
+  challengeAssignments ChallengeAssignment[]
   @@index([kind, difficulty])
 }
 
@@ -291,6 +308,7 @@ model ProblemSolve {
   userId    String
   problemId String
   solvedAt  DateTime @default(now())
+  verification SolveVerification @default(LEGACY_UNVERIFIED)
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
   @@id([userId, problemId])
@@ -375,6 +393,7 @@ model ContestSolve {
   entryId   String
   problemId String
   solvedAt  DateTime @default(now())
+  verification SolveVerification @default(LEGACY_UNVERIFIED)
   entry     ContestEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
   @@id([entryId, problemId])
 }
@@ -428,3 +447,174 @@ model SyncEvent {
 
   @@id([userId, id])
 }
+
+/// Links one Algoryva account to one Telegram account. The Telegram user id itself is never stored: only an HMAC of it,
+/// keyed by a secret derived from TELEGRAM_BOT_API_SECRET, so a database copy cannot reveal Telegram identities.
+model TelegramLink {
+  userId          String   @id
+  telegramHash    String   @unique
+  createdAt       DateTime @default(now())
+  /// Off by default. Only opted-in accounts appear on the bot's public leaderboard.
+  leaderboardOptIn Boolean @default(false)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A single-use, expiring link token. Only the SHA-256 of the token is stored. The row is not tied to an account until it is
+/// consumed, and expired or used rows are pruned.
+model TelegramLinkChallenge {
+  id           String    @id @default(cuid())
+  telegramHash String
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime  @default(now())
+  @@index([telegramHash, createdAt])
+}
+
+/// Replay protection for signed bot requests. Rows older than the signature window are pruned.
+model BotNonce {
+  nonce     String   @id
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
+
+/// The one daily challenge a user is given on a UTC day. Unique per user and day, so a repeated request returns the same problem.
+model ChallengeAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  day       String
+  problemId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem   Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  @@unique([userId, day])
+  @@index([userId, createdAt])
+}
+
+/// A Telegram chat that receives community messages: a private chat that started the bot, or a group an admin enabled.
+/// The chat id is stored encrypted (it is needed to send messages). Only its keyed hash is used for lookups.
+/// userId is set when the chat is linked to an Algoryva account; deleting that account deletes this row.
+model TelegramRecipient {
+  id            String   @id @default(cuid())
+  chatHash      String   @unique
+  chatCipher    String
+  kind          String
+  userId        String?
+  dailyCf       Boolean  @default(true)
+  contestAlerts Boolean  @default(true)
+  blocked       Boolean  @default(false)
+  referrerCode  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries    NotificationDelivery[]
+  cfHandles     CfHandle[]
+  groupRoster   GroupRoster[]
+  groupDaily    GroupDaily?
+  @@index([userId])
+}
+
+/// One community message to one chat. The unique key makes each daily problem and each contest reminder happen once per chat.
+model NotificationDelivery {
+  id          String    @id @default(cuid())
+  recipientId String
+  kind        String
+  key         String
+  ref         String?
+  status      String    @default("pending")
+  attempts    Int       @default(0)
+  lastTriedAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  recipient   TelegramRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  @@unique([recipientId, kind, key])
+  @@index([status, createdAt])
+}
+
+/// Cached public Codeforces API responses. Keeps calls far under Codeforces' limit of one request per two seconds.
+model CfCache {
+  key       String   @id
+  payload   Json
+  fetchedAt DateTime
+}
+
+/// A user's referral code. Shared as a deep link; a referral counts only after the referred account has an output-matched solve.
+model ReferralCode {
+  userId    String   @id
+  code      String   @unique
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A weekly reward earned by verified work. Unique per user, kind and week, so each reward is granted once.
+model BotReward {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String
+  periodKey String
+  detail    String?
+  awardedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, kind, periodKey])
+  @@index([userId])
+}
+
+/// Marks a calendar week as already awarded, so the awarding step does nothing on later runs.
+model RewardPeriod {
+  periodKey String   @id
+  awardedAt DateTime @default(now())
+}
+
+/// A university or study club. Any linked student can create one. Members join with the invite code. The board shows club names and
+/// scores only, never member names.
+model Club {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  leaderUserId String
+  createdAt    DateTime @default(now())
+  leader       User     @relation(fields: [leaderUserId], references: [id], onDelete: Cascade)
+  members      ClubMembership[]
+}
+
+/// One club per student. Deleting the student or the club removes the membership.
+model ClubMembership {
+  clubId   String
+  userId   String   @unique
+  joinedAt DateTime @default(now())
+  club     Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([clubId, userId])
+}
+
+/// A Codeforces handle connected to a chat (a private chat, or a group where a member ran /connect).
+/// Used to skip problems the chat's handles have already solved.
+model CfHandle {
+  id          String   @id @default(cuid())
+  recipientId String
+  handle      String
+  linkedAt    DateTime @default(now())
+  recipient   TelegramRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  @@unique([recipientId, handle])
+  @@index([handle])
+}
+
+/// Codeforces handles a group admin expects to see in the group (the class roster). Telegram does not let a bot list group
+/// members, so the roster is the admin's list of handles. A handle counts as registered once it has run /connect with the bot.
+model GroupRoster {
+  id          String   @id @default(cuid())
+  recipientId String
+  handle      String
+  addedAt     DateTime @default(now())
+  recipient   TelegramRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  @@unique([recipientId, handle])
+}
+
+/// The problem a group uses instead of the default daily problem. Removed when the admin resets it.
+model GroupDaily {
+  recipientId String   @id
+  problemRef  String
+  setAt       DateTime @default(now())
+  recipient   TelegramRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+}
+

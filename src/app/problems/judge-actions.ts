@@ -7,6 +7,7 @@ import { contestState } from "@/lib/contests";
 import { HOUR, isBlocked, record } from "@/lib/rate-limit";
 import { awardContestSolve, awardSolve } from "@/lib/solve";
 import { passRevisit } from "@/lib/revisit-store";
+import { NOT_RECORDED_CONTEST, NOT_RECORDED_PRACTICE } from "@/lib/solve-messages";
 
 /** Only public samples carry input, expected and actual. Hidden tests return just the verdict. */
 export type CheckResult = { isSample: boolean; pass: boolean; input?: string; expected?: string; actual?: string };
@@ -59,9 +60,13 @@ export async function checkOutput(_: CheckState, form: FormData): Promise<CheckS
     if (!state.running) return { results, allPass, note: "The contest timer has ended, so this pass was not counted. Solve it from the problem page to practice." };
     const inContest = await db.contestProblem.findUnique({ where: { contestId_problemId: { contestId, problemId: problem.id } }, select: { problemId: true } });
     if (!inContest) return { results, allPass, note: "This problem is not part of that contest, so this pass was not counted." };
-    await awardContestSolve(state.entry.id, user.id, problem.id);
+    // A false result means no new solve was recorded: it was already counted, or the timer ended or the entry changed between the
+    // checks above and this write. The student must be told, never shown a solve that was not recorded.
+    const recorded = await awardContestSolve(state.entry.id, user.id, problem.id, "OUTPUT_MATCHED");
+    if (!recorded) return { results, allPass, note: NOT_RECORDED_CONTEST };
   } else {
-    await awardSolve(user.id, problem.id);
+    const recorded = await awardSolve(user.id, problem.id, "OUTPUT_MATCHED");
+    if (!recorded) return { results, allPass, note: NOT_RECORDED_PRACTICE };
   }
   revalidatePath("/problems", "layout");
   return { results, allPass };
