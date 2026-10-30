@@ -1,4 +1,4 @@
-# Telegram bot client (Python). Pinned dependencies from requirements.lock; tests include the cross-language signing vector.
+# Telegram bot (JavaScript, grammY). Tests run from bot-js/ with the pinned lock file.
 name: CI (bot)
 
 on:
@@ -17,14 +17,16 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     defaults:
       run:
-        working-directory: bot
+        working-directory: bot-js
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
-      - run: pip install -r requirements.lock && pip install -e ".[dev]" --no-deps
-      - run: python -m pytest -q
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: bot-js/package-lock.json
+      - run: npm ci
+      - run: npm test
