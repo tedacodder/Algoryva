@@ -59,3 +59,8 @@ export function contestsStartingWithin(contests: CfContest[], now: Date, minutes
 export function newlyPosted(contests: CfContest[], seen: ReadonlySet<string>): CfContest[] {
   return contests.filter((c) => !seen.has(String(c.id)));
 }
+
+/** Contests ordered by start time, soonest first. */
+export function soonestFirst(contests: CfContest[]): CfContest[] {
+  return [...contests].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+}

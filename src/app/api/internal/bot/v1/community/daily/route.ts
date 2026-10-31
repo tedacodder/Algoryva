@@ -7,7 +7,7 @@ import { chatKey } from "@/lib/telegram/chat-cipher";
 import { chatIdSchema, telegramIdSchema } from "@/lib/telegram/schema";
 import { HOUR } from "@/lib/rate-limit";
 
-import { dailyText } from "@/lib/bot/community";
+import { dailyResult } from "@/lib/bot/community";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,5 +19,5 @@ export const POST = handle(async (request) => {
   const secret = botSecret();
   const { chatId } = parseWith(bodySchema, await readSignedJson(request, MAX_BODY_SMALL));
   await limitOrThrow(`bot-daily-cf:${hashTelegramId(secret, chatId)}`, 60, HOUR);
-  return json({ text: await dailyText(secret, chatId, new Date()) });
+  return json((await dailyResult(secret, chatId, new Date())) ?? { text: null, problem: null });
 });

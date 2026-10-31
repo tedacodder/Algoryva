@@ -9,6 +9,7 @@ export const KEYBOARD_BUTTONS = {
   "🎲 Random": "random",
   "📅 Daily": "daily",
   "🏆 Contests": "contests",
+  "⏰ Next Contest": "next",
   "🔗 Connect": "connect",
   "👤 My Handles": "me",
   "⚙️ Settings": "settings",
@@ -20,7 +21,7 @@ export const WELCOME =
   "👋 Hey {name}! I'm your Codeforces coach.\n\n🎲 Random problems with the rating and tags you choose\n📅 A daily challenge, every day\n🏆 Contest alerts: when a contest is posted, and two hours before it starts\n✅ Connect your handle and I skip what you have already solved\n\nTap a button below to start.";
 
 export const HELP_TEXT =
-  "❓ Commands\n\n🎲 /random - a random problem\n    /random 1400 - around rating 1400 (±100)\n    /random 1200-1600 dp graphs - a band and tags\n📅 /daily - today's challenge\n🏆 /contests - upcoming contests (UTC and EAT)\n🔗 /connect <handle> - link your Codeforces handle\n👤 /me - your connected handles\n🧾 /disconnect [handle] - unlink one handle, or all\n⚙️ /notify daily|contests on|off - choose what you receive\n👥 /enable and /disable - group admins only\n🛑 /stop - stop all messages in this chat\n\nTags use Codeforces names, with dashes for spaces: dfs-and-similar.";
+  "❓ Commands\n\n🎲 /random - a random problem\n    /random 1400 - around rating 1400 (±100)\n    /random 1200-1600 dp graphs - a band and tags\n📅 /daily - today's challenge\n🏆 /contests - upcoming contests, soonest first\n⏰ /next - the next contest, with time left\n🔗 /connect <handle> - link your Codeforces handle\n👤 /me - your connected handles\n🧾 /disconnect [handle] - unlink one handle, or all\n⚙️ /notify daily|contests on|off - choose what you receive\n👥 /enable and /disable - group admins only\n🛑 /stop - stop all messages in this chat\n\nTags use Codeforces names, with dashes for spaces: dfs-and-similar.";
 
 export const NOT_ADMIN = "🔒 Only a group admin can change this.";
 export const NO_MATCH = "🤷 No problem matches those filters. Try a wider rating band or fewer tags.";
