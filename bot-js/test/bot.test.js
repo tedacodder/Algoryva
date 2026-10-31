@@ -172,3 +172,43 @@ test("/report in a group shows the class report, and refuses in a private chat",
   await p.bot.handleUpdate(p.update({ text: "/report" }));
   assert.equal(p.site.calls.some((c) => c[0] === "groupReport"), false);
 });
+
+test("/contests lists the contests soonest first, with local time and countdowns", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const contests = [
+    { id: 2, name: "Later Round", startTimeSeconds: now + 3 * 86400, durationSeconds: 7200, url: "https://codeforces.com/contests/2" },
+    { id: 1, name: "Sooner Round", startTimeSeconds: now + 5400, durationSeconds: 7200, url: "https://codeforces.com/contests/1" },
+  ];
+  const h = makeHarness({ siteOverrides: { contests: async () => ({ text: "x", contests }) } });
+  await h.bot.handleUpdate(h.update({ text: "/contests" }));
+  assert.match(h.sent[0].text, /Upcoming Codeforces contests/);
+  assert.ok(h.sent[0].text.indexOf("Sooner Round") < h.sent[0].text.indexOf("Later Round"));
+  assert.match(h.sent[0].text, /<blockquote>/);
+});
+
+test("the Next Contest button and /next send the single soonest contest", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const contests = [{ id: 1, name: "Only Round", startTimeSeconds: now + 3600, durationSeconds: 7200, url: "https://codeforces.com/contests/1" }];
+  const h = makeHarness({ siteOverrides: { contests: async () => ({ text: "x", contests }) } });
+  await h.bot.handleUpdate(h.update({ text: "⏰ Next Contest" }));
+  assert.match(h.sent[0].text, /Next Codeforces contest/);
+  assert.match(h.sent[0].text, /Only Round/);
+  await h.bot.handleUpdate(h.update({ text: "/next" }));
+  assert.match(h.sent[1].text, /Next Codeforces contest/);
+});
+
+test("a daily problem from the website is sent as a quote with a spoiler on its tags", async () => {
+  const problem = { ref: "1800/A", name: "Easy One", rating: 900, tags: ["math"], url: "https://codeforces.com/problemset/problem/1800/A", day: "2026-10-28", group: false, personalized: false };
+  const h = makeHarness({ siteOverrides: { daily: async () => ({ text: "plain", problem }) } });
+  await h.bot.handleUpdate(h.update({ text: "/daily" }));
+  assert.match(h.sent[0].text, /<blockquote>/);
+  assert.match(h.sent[0].text, /<tg-spoiler>#math<\/tg-spoiler>/);
+  assert.match(h.sent[0].text, /Easy One/);
+});
+
+test("/report sends the class report as formatted HTML", async () => {
+  const h = makeHarness({ memberStatus: "member" });
+  await h.bot.handleUpdate(h.update({ text: "/report", chatType: "group", chatId: -1009000000777 }));
+  assert.match(h.sent[0].text, /<b>Class report<\/b>/);
+  assert.match(h.sent[0].text, /<blockquote>/);
+});

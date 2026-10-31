@@ -7,11 +7,14 @@ import { decryptChatId, encryptChatId } from "@/lib/telegram/chat-cipher";
 import { CodeforcesError, problemset, upcomingContests, userInfo, userSolved } from "@/lib/codeforces/client";
 import {
   RANDOM_DEFAULT,
+  contestUrl,
   contestsStartingWithin,
   newlyPosted,
   pickDailyProblem,
   pickRandomProblem,
   problemRef,
+  problemUrl,
+  soonestFirst,
   type CfContest,
   type CfProblem,
   type RandomFilter,
@@ -119,39 +122,70 @@ export async function stopChat(secret: string, chatId: string): Promise<boolean>
   return r.count > 0;
 }
 
-/** Today's problem for a chat, on demand (for /daily). Keeps a stored delivery if one exists, so the answer matches the scheduled message. */
-export async function dailyText(secret: string, chatId: string, now: Date): Promise<string | null> {
+/** The problem data the bot formats itself: name, rating, tags, link. */
+function problemData(p: CfProblem) {
+  return { ref: problemRef(p), name: p.name, rating: p.rating ?? null, tags: p.tags, url: problemUrl(p) };
+}
+
+type DailyChoice = { problems: CfProblem[]; day: string; ref: string; kind: string; hash: string; personalized: boolean };
+
+/** Which problem a chat gets today. Stored deliveries and the group's own problem take precedence, so the answer matches the scheduled message. */
+async function dailyChoice(secret: string, chatId: string, now: Date): Promise<DailyChoice | null> {
   const day = utcDay(now);
   const problems = await problemset(now);
   if (!problems) return null;
   const hash = chatHash(secret, chatId);
   const recipient = await findChat(secret, chatId);
-  // A group's own problem (set by an admin) replaces the default, from the moment it is set.
   const custom = recipient?.kind === "group" ? await customRefFor(recipient.id) : null;
-  if (custom) return renderDaily(problems, custom, day, "group", hash, false);
+  if (custom) return { problems, day, ref: custom, kind: "group", hash, personalized: false };
   if (recipient) {
     const stored = await db.notificationDelivery.findUnique({
       where: { recipientId_kind_key: { recipientId: recipient.id, kind: "daily_cf", key: day } },
       select: { ref: true },
     });
-    if (stored?.ref) return renderDaily(problems, stored.ref, day, recipient.kind, hash, true);
+    if (stored?.ref) return { problems, day, ref: stored.ref, kind: recipient.kind, hash, personalized: true };
   }
   const handles = recipient ? await handlesOf(recipient.id) : [];
   const exclude = new Set<string>([...(recipient ? await recentRefs(recipient.id, now) : []), ...(await solvedBy(handles, now))]);
   const pick = pickDailyProblem(problems, wordingSeed(hash, day), exclude);
   if (!pick) return null;
-  if (recipient) {
-    await db.notificationDelivery.createMany({
-      data: [{ recipientId: recipient.id, kind: "daily_cf", key: day, ref: problemRef(pick), status: "sent", sentAt: now }],
-      skipDuplicates: true,
-    });
-    const saved = await db.notificationDelivery.findUnique({
-      where: { recipientId_kind_key: { recipientId: recipient.id, kind: "daily_cf", key: day } },
-      select: { ref: true },
-    });
-    return renderDaily(problems, saved?.ref ?? problemRef(pick), day, recipient.kind, hash, handles.length > 0);
-  }
-  return formatDaily(pick, day, { rng: seededRng(wordingSeed(hash, day)) });
+  if (!recipient) return { problems, day, ref: problemRef(pick), kind: "private", hash, personalized: false };
+  await db.notificationDelivery.createMany({
+    data: [{ recipientId: recipient.id, kind: "daily_cf", key: day, ref: problemRef(pick), status: "sent", sentAt: now }],
+    skipDuplicates: true,
+  });
+  const saved = await db.notificationDelivery.findUnique({
+    where: { recipientId_kind_key: { recipientId: recipient.id, kind: "daily_cf", key: day } },
+    select: { ref: true },
+  });
+  return { problems, day, ref: saved?.ref ?? problemRef(pick), kind: recipient.kind, hash, personalized: handles.length > 0 };
+}
+
+/** Today's problem as plain text (used by scheduled messages and as a fallback). */
+export async function dailyText(secret: string, chatId: string, now: Date): Promise<string | null> {
+  const c = await dailyChoice(secret, chatId, now);
+  if (!c) return null;
+  return renderDaily(c.problems, c.ref, c.day, c.kind, c.hash, c.personalized);
+}
+
+/** Today's problem as text plus structured fields, so the bot can format it with quotes and spoilers. */
+export async function dailyResult(secret: string, chatId: string, now: Date) {
+  const c = await dailyChoice(secret, chatId, now);
+  if (!c) return null;
+  const p = c.problems.find((x) => problemRef(x) === c.ref);
+  return {
+    text: renderDaily(c.problems, c.ref, c.day, c.kind, c.hash, c.personalized),
+    problem: p ? { ...problemData(p), day: c.day, group: c.kind === "group", personalized: c.personalized } : null,
+  };
+}
+
+/** Upcoming contests, soonest first, as structured data. */
+export async function contestsList(now: Date) {
+  const contests = await upcomingContests(now);
+  if (!contests) return [];
+  return soonestFirst(contests)
+    .slice(0, 8)
+    .map((c) => ({ id: c.id, name: c.name, startTimeSeconds: c.startTimeSeconds, durationSeconds: c.durationSeconds, url: contestUrl(c.id) }));
 }
 
 /** A random problem for a chat, with an optional rating band and tags. The default band is 800 to 2000. */
@@ -160,7 +194,7 @@ export async function randomProblem(
   chatId: string,
   filter: RandomFilter = RANDOM_DEFAULT,
   now: Date,
-): Promise<{ text: string } | { reason: "cf_unavailable" | "no_match" | "all_solved" }> {
+): Promise<{ text: string; problem: ReturnType<typeof problemData> & { personalized: boolean } } | { reason: "cf_unavailable" | "no_match" | "all_solved" }> {
   const problems = await problemset(now);
   if (!problems) return { reason: "cf_unavailable" };
   const recipient = await findChat(secret, chatId);
@@ -171,13 +205,13 @@ export async function randomProblem(
     const anyMatch = pickRandomProblem(problems, filter, new Set());
     return { reason: anyMatch ? "all_solved" : "no_match" };
   }
-  return { text: formatRandom(pick, filter, { personalized: handles.length > 0 }) };
+  return { text: formatRandom(pick, filter, { personalized: handles.length > 0 }), problem: { ...problemData(pick), personalized: handles.length > 0 } };
 }
 
 export async function contestsText(now: Date): Promise<string> {
   const contests = await upcomingContests(now);
   if (!contests) return "🌧️ Codeforces is not answering right now. Try again in a few minutes.";
-  return formatContestList(contests.slice(0, 8));
+  return formatContestList(soonestFirst(contests).slice(0, 8));
 }
 
 /**
