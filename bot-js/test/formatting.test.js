@@ -53,3 +53,62 @@ test("the report puts each group of students in a quote", () => {
 test("scheduled messages get the same spoiler on their tags", () => {
   assert.match(toHtml("⭐ Rating 1100   🏷️ #greedy #sortings"), /<tg-spoiler>#greedy #sortings<\/tg-spoiler>/);
 });
+
+import { commandCardHtml, helpIndexHtml, leaderboardHtml, leaderboardCheckingHtml, progressBar } from "../src/formatting.js";
+import { commandByName } from "../src/commands.js";
+
+const ROWS = [
+  { rank: 1, handle: "tourist", rating: 3900, solved: 12, activeDays: 6, consistency: 86, score: 24 },
+  { rank: 2, handle: "jiangly", rating: null, solved: 5, activeDays: 2, consistency: 29, score: 9 },
+];
+const DATA = { period: "week", rows: ROWS, rosterCount: 3, registered: 2, notRegistered: ["ksun48"], pending: [], checkedAt: "2026-10-31T12:00:00.000Z" };
+
+test("the leaderboard is a table with medals, and every handle appears in it", () => {
+  const html = leaderboardHtml(DATA);
+  assert.match(html, /<pre>/);
+  assert.ok(html.includes("🥇  tourist"));
+  assert.ok(html.includes("🥈  jiangly"));
+  assert.match(html, /—/); // an unrated member shows a dash, not "null"
+  assert.doesNotMatch(html, /null/);
+});
+
+test("the leaderboard explains the score, and lists the members still being checked", () => {
+  const html = leaderboardHtml({ ...DATA, pending: ["amy"] });
+  assert.match(html, /Score = solved \+ 2 × active days/);
+  assert.match(html, /Still being checked \(1\)/);
+  assert.match(html, /Refresh/);
+  assert.match(html, /Not registered \(1\)/);
+  assert.match(html, /2\/3 registered/);
+});
+
+test("an empty period says so, instead of printing an empty table", () => {
+  const html = leaderboardHtml({ ...DATA, rows: [], registered: 0 });
+  assert.match(html, /No verified solves in this period yet/);
+  assert.doesNotMatch(html, /<pre>/);
+});
+
+test("names in the table are escaped", () => {
+  const html = leaderboardHtml({ ...DATA, rows: [{ ...ROWS[0], handle: "a<b" }] });
+  assert.ok(html.includes("a&lt;b"));
+});
+
+test("the progress bar fills in proportion", () => {
+  assert.equal(progressBar(0, 10), "▱▱▱▱▱▱▱▱▱▱");
+  assert.equal(progressBar(5, 10), "▰▰▰▰▰▱▱▱▱▱");
+  assert.equal(progressBar(10, 10), "▰▰▰▰▰▰▰▰▰▰");
+  assert.match(leaderboardCheckingHtml("week"), /Checking Codeforces/);
+});
+
+test("a command card shows usage, subcommands and admin marks", () => {
+  const card = commandCardHtml(commandByName("roster"));
+  assert.match(card, /<code>\/roster list<\/code>/);
+  assert.match(card, /Subcommands/);
+  assert.match(card, /🔒/);
+});
+
+test("the help index lists every section and the commands under it", () => {
+  const html = helpIndexHtml();
+  assert.match(html, /Practice/);
+  assert.match(html, /Groups and classes/);
+  assert.match(html, /<code>\/leaderboard<\/code>/);
+});

@@ -8,7 +8,7 @@ import { createDeliverHandler } from "./deliver.js";
 export function createApp(env = process.env, { botInfo } = {}) {
   const config = loadConfig(env);
   const site = createSite({ base: config.base, secret: config.secret });
-  const bot = createBot({ token: config.token, site, botInfo });
+  const bot = createBot({ token: config.token, site, botInfo, docsUrl: `${config.base}/bot` });
   return {
     webhook: createWebhookHandler({ bot, secretToken: config.webhookSecret }),
     deliver: createDeliverHandler({ bot, site, cronSecret: config.cronSecret }),

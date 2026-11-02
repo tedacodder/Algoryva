@@ -42,7 +42,8 @@ import { parseRoster, parseSetDaily, formatReport } from "../src/texts.js";
 
 test("roster accepts spaces or commas, and rejects bad handles", () => {
   assert.deepEqual(parseRoster("set tourist, jiangly  ksun48"), { action: "set", handles: ["tourist", "jiangly", "ksun48"] });
-  assert.deepEqual(parseRoster(""), { action: "list", handles: [] });
+  assert.deepEqual(parseRoster(""), { action: "help", handles: [] });
+  assert.deepEqual(parseRoster("list"), { action: "list", handles: [] });
   assert.throws(() => parseRoster("set bad handle!"), /not a valid handle/);
   assert.throws(() => parseRoster("explode tourist"), /Use: \/roster/);
 });
@@ -81,3 +82,20 @@ test("a long list is shortened so one message stays readable", () => {
   const text = formatReport({ problem: null, rosterCount: 60, registered: 60, notRegistered: [], solved: [], unsolved: many, pending: [], usesConnectedFallback: false });
   assert.match(text, /and 20 more/);
 });
+
+import { parseLeaderboard } from "../src/texts.js";
+
+test("roster add, remove and set need at least one handle", () => {
+  assert.throws(() => parseRoster("add"), /Add at least one handle/);
+  assert.throws(() => parseRoster("set"), /Add at least one handle/);
+  assert.deepEqual(parseRoster("add tourist, jiangly"), { action: "add", handles: ["tourist", "jiangly"] });
+  assert.deepEqual(parseRoster("clear"), { action: "clear", handles: [] });
+});
+
+test("leaderboard accepts week, month and all, and defaults to week", () => {
+  assert.equal(parseLeaderboard(""), "week");
+  assert.equal(parseLeaderboard("Month"), "month");
+  assert.equal(parseLeaderboard("all"), "all");
+  assert.equal(parseLeaderboard("year"), null);
+});
+

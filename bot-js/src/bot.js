@@ -1,9 +1,10 @@
 // The grammY bot. It holds no state of its own: every fact lives on the website (the database), so no session storage is needed.
-import { Bot, GrammyError, Keyboard } from "grammy"; // eslint-disable-line no-unused-vars
+import { Bot, GrammyError, InlineKeyboard, Keyboard } from "grammy";
 import { SiteError } from "./site.js";
 import { toHtml } from "./render.js";
 import * as T from "./texts.js";
 import * as F from "./formatting.js";
+import { commandByName } from "./commands.js";
 
 export const ADMIN = ["creator", "administrator"];
 const DAILY_OPENERS = ["🧠 Brain teaser of the day", "🔥 Fresh from Codeforces", "⚡ Quick challenge for you", "🎯 Today's target", "🧩 Puzzle time"];
@@ -21,7 +22,7 @@ function keyboard() {
 
 const byStart = (contests) => [...contests].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
 
-export function createBot({ token, site, botInfo }) {
+export function createBot({ token, site, botInfo, docsUrl = null }) {
   // botInfo lets a serverless function skip the getMe call on every cold start, when it is known in advance.
   const bot = new Bot(token, botInfo ? { botInfo } : {});
 
@@ -34,11 +35,11 @@ export function createBot({ token, site, botInfo }) {
   const inGroup = (ctx) => ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
   const chatId = (ctx) => String(ctx.chat.id);
 
-  async function replyHtml(ctx, html, { menu = false } = {}) {
+  async function replyHtml(ctx, html, { menu = false, inline } = {}) {
     return ctx.reply(html, {
       parse_mode: "HTML",
       link_preview_options: { is_disabled: true },
-      reply_markup: menu && isPrivate(ctx) ? keyboard() : undefined,
+      reply_markup: inline ?? (menu && isPrivate(ctx) ? keyboard() : undefined),
     });
   }
 
@@ -126,7 +127,15 @@ export function createBot({ token, site, botInfo }) {
     );
   });
 
-  bot.command(["help", "menu"], (ctx) => replyHtml(ctx, F.helpHtml(), { menu: true }));
+  // /help lists every section; /help <command> shows that command's card. The web guide link stays under the message.
+  const guideButton = () => (docsUrl ? new InlineKeyboard().url("📖 Full guide on the website", docsUrl) : undefined);
+  bot.command(["help", "menu"], (ctx) => {
+    const topic = (ctx.match ?? "").trim().replace(/^\//, "").toLowerCase();
+    if (!topic) return replyHtml(ctx, F.helpIndexHtml(), { menu: true, inline: guideButton() });
+    const cmd = commandByName(topic);
+    if (!cmd) return replyHtml(ctx, `❓ There is no command called <b>/${F.esc(topic)}</b>. Send /help for the full list.`, { menu: true });
+    return replyHtml(ctx, F.commandCardHtml(cmd), { menu: true, inline: guideButton() });
+  });
   bot.command("random", (ctx) => act(ctx, randomAction(ctx, ctx.match), { menu: true }));
   bot.command("daily", (ctx) => act(ctx, async () => dailyOut(await site.daily(chatId(ctx))), { menu: true }));
   bot.command("contests", (ctx) => act(ctx, contestsAction(ctx), { menu: true }));
@@ -185,6 +194,7 @@ export function createBot({ token, site, botInfo }) {
     } catch (error) {
       return reply(ctx, `⚠️ ${error.message}`);
     }
+    if (parsed.action === "help") return replyHtml(ctx, F.commandCardHtml(commandByName("roster")));
     if (parsed.action !== "list" && !(await isGroupAdmin(ctx))) return reply(ctx, T.NOT_ADMIN);
     return act(ctx, async () => {
       const data = await site.roster(chatId(ctx), parsed.action, parsed.handles);
@@ -194,6 +204,7 @@ export function createBot({ token, site, botInfo }) {
 
   bot.command("setdaily", async (ctx) => {
     if (!inGroup(ctx)) return reply(ctx, "👥 /setdaily works in your group chat.");
+    if (!(ctx.match ?? "").trim()) return replyHtml(ctx, F.commandCardHtml(commandByName("setdaily")));
     if (!(await isGroupAdmin(ctx))) return reply(ctx, T.NOT_ADMIN);
     let parsed;
     try {
@@ -213,6 +224,54 @@ export function createBot({ token, site, botInfo }) {
     return act(ctx, async () => ({ html: F.reportHtml(await site.groupReport(chatId(ctx))) }));
   });
 
+  // ---- group leaderboard: the table is edited in place as it is checked, and 🔄 Refresh checks the next group of students ----
+  const leaderboardKeyboard = (period) => {
+    const kb = new InlineKeyboard()
+      .text("🔄 Refresh", `lb:${period}`)
+      .text("📅 Week", "lb:week")
+      .text("🗓 Month", "lb:month")
+      .text("♾ All time", "lb:all");
+    if (docsUrl) kb.row().url("📖 How the ranking works", `${docsUrl}#leaderboard`);
+    return kb;
+  };
+
+  async function editMessage(chat, messageId, html, markup) {
+    try {
+      await bot.api.editMessageText(chat, messageId, html, { parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: markup });
+    } catch (error) {
+      // Telegram refuses an edit that changes nothing. That is harmless, so it is ignored.
+      if (!(error instanceof GrammyError && /not modified/i.test(error.description ?? ""))) throw error;
+    }
+  }
+
+  async function runLeaderboard(chat, messageId, period) {
+    try {
+      const data = await site.leaderboard(String(chat), period);
+      await editMessage(chat, messageId, F.leaderboardHtml(data), leaderboardKeyboard(period));
+    } catch (error) {
+      const text = error instanceof SiteError ? T.errorText(error.code) : T.GENERIC;
+      if (!(error instanceof SiteError)) console.error("leaderboard failed:", error?.name ?? "unknown");
+      await editMessage(chat, messageId, `<blockquote>${text}</blockquote>`, leaderboardKeyboard(period)).catch(() => undefined);
+    }
+  }
+
+  bot.command("leaderboard", async (ctx) => {
+    if (!inGroup(ctx)) return replyHtml(ctx, "📊 /leaderboard works in your group chat, where the class is.");
+    const period = T.parseLeaderboard(ctx.match);
+    if (!period) return replyHtml(ctx, F.commandCardHtml(commandByName("leaderboard")));
+    const placeholder = await replyHtml(ctx, F.leaderboardCheckingHtml(period));
+    return runLeaderboard(ctx.chat.id, placeholder.message_id, period);
+  });
+
+  bot.callbackQuery(/^lb:(week|month|all)$/, async (ctx) => {
+    await ctx.answerCallbackQuery({ text: "Refreshing…" });
+    const message = ctx.callbackQuery.message;
+    if (!message) return undefined;
+    const period = ctx.callbackQuery.data.slice(3);
+    await editMessage(message.chat.id, message.message_id, F.leaderboardCheckingHtml(period), undefined);
+    return runLeaderboard(message.chat.id, message.message_id, period);
+  });
+
   // ---- keyboard buttons (private chats only: Telegram does not deliver taps from groups to bots) ----------------
   bot.hears(Object.keys(T.KEYBOARD_BUTTONS), (ctx) => {
     if (!isPrivate(ctx)) return undefined;
@@ -225,7 +284,7 @@ export function createBot({ token, site, botInfo }) {
       me: () => act(ctx, meAction(ctx), { menu: true }),
       settings: () => reply(ctx, T.SETTINGS_GUIDE, { menu: true }),
       groups: () => reply(ctx, T.GROUP_GUIDE, { menu: true }),
-      help: () => replyHtml(ctx, F.helpHtml(), { menu: true }),
+      help: () => replyHtml(ctx, F.helpIndexHtml(), { menu: true }),
     };
     return handlers[T.KEYBOARD_BUTTONS[ctx.message.text]]();
   });

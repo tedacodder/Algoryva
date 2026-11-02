@@ -135,20 +135,52 @@ export async function userInfo(handle: string, now: Date): Promise<{ handle: str
   }
 }
 
+/** An accepted problem and when it was first accepted (Unix seconds). */
+export type Accepted = { ref: string; at: number };
+
 /**
- * The problems a handle has solved (verdict OK), as "contestId/index" references. Null when Codeforces is unreachable and nothing is cached,
- * in which case callers do not exclude anything and say so. Only the most recent 10,000 submissions are read.
+ * Accepted problems for a handle, one entry per problem with its first accepted time. One user.status call fills this cache,
+ * and the solved list shares that call. Returns null when Codeforces is unreachable and nothing is cached.
  */
-export async function userSolved(handle: string, now: Date): Promise<string[] | null> {
-  return cached<string[]>(`solved:${handle.toLowerCase()}`, USER_TTL_MS, now, async () => {
+async function loadAccepted(handle: string, now: Date): Promise<Accepted[] | null> {
+  const key = `accepted:${handle.toLowerCase()}`;
+  const row = await db.cfCache.findUnique({ where: { key } });
+  if (row && isFresh(row.fetchedAt, USER_TTL_MS, now)) return row.payload as unknown as Accepted[];
+  try {
     const subs = await call<Json[]>("user.status", { handle, from: "1", count: "10000" });
-    const refs = new Set<string>();
+    const first = new Map<string, Accepted>();
     for (const s of subs) {
       const problem = s.problem as Json | undefined;
       if (s.verdict === "OK" && problem && typeof problem.contestId === "number" && typeof problem.index === "string") {
-        refs.add(`${problem.contestId}/${problem.index}`);
+        const ref = `${problem.contestId}/${problem.index}`;
+        const at = typeof s.creationTimeSeconds === "number" ? s.creationTimeSeconds : 0;
+        const previous = first.get(ref);
+        if (!previous || at < previous.at) first.set(ref, { ref, at });
       }
     }
-    return [...refs];
+    const list = [...first.values()];
+    const payload = list as unknown as Prisma.InputJsonValue;
+    await db.cfCache.upsert({ where: { key }, create: { key, payload, fetchedAt: now }, update: { payload, fetchedAt: now } });
+    return list;
+  } catch (e) {
+    if (e instanceof CodeforcesError && e.kind === "not_found") throw e;
+    return row ? (row.payload as unknown as Accepted[]) : null;
+  }
+}
+
+/** Accepted problems with their times. Null when unknown. */
+export async function userAccepted(handle: string, now: Date): Promise<Accepted[] | null> {
+  return loadAccepted(handle, now);
+}
+
+/**
+ * The problems a handle has solved (verdict OK), as "contestId/index" references. Null when Codeforces is unreachable and nothing is cached,
+ * in which case callers do not exclude anything and say so.
+ */
+export async function userSolved(handle: string, now: Date): Promise<string[] | null> {
+  return cached<string[]>(`solved:${handle.toLowerCase()}`, USER_TTL_MS, now, async () => {
+    const list = await loadAccepted(handle, now);
+    if (list === null) throw new CodeforcesError("user.status unavailable", "unavailable");
+    return list.map((x) => x.ref);
   });
 }

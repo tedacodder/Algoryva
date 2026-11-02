@@ -86,12 +86,20 @@ export const SETTINGS_GUIDE =
 
 /** '/roster set h1 h2, h3' -> { action, handles }. Handles may be separated by spaces or commas. */
 export function parseRoster(args) {
-  const [action = "list", ...rest] = (args ?? "").trim().split(/\s+/).filter(Boolean);
-  const allowed = ["set", "add", "remove", "list", "clear"];
-  if (!allowed.includes(action.toLowerCase())) throw new Error("Use: /roster set|add|remove|list|clear, then handles.");
+  const [first = "", ...rest] = (args ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!first) return { action: "help", handles: [] }; // "/roster" alone shows the subcommands
+  const action = first.toLowerCase();
+  if (!["set", "add", "remove", "list", "clear"].includes(action)) throw new Error("Use: /roster list, add, remove, set or clear.");
   const handles = rest.join(" ").split(/[\s,]+/).map((h) => h.replace(/^@/, "")).filter(Boolean);
   if (handles.some((h) => !HANDLE_RE.test(h))) throw new Error("One of those is not a valid handle. Handles are 3 to 24 letters, numbers, dots, dashes or underscores.");
-  return { action: action.toLowerCase(), handles };
+  if (["set", "add", "remove"].includes(action) && handles.length === 0) throw new Error(`Add at least one handle, for example /roster ${action} tourist.`);
+  return { action, handles };
+}
+
+/** '/leaderboard', '/leaderboard month'. Returns 'week', 'month' or 'all', or null for anything else. */
+export function parseLeaderboard(args) {
+  const period = (args ?? "").trim().toLowerCase() || "week";
+  return ["week", "month", "all"].includes(period) ? period : null;
 }
 
 /** '/setdaily 1800C', '/setdaily 1800/C', a Codeforces problem link, or 'reset'. Returns { problem: '1800/C' } or { problem: null }. */

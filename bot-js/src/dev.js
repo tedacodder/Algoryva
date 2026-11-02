@@ -35,4 +35,4 @@ process.once("SIGINT", stop);
 process.once("SIGTERM", stop);
 
 console.log("local mode: polling for messages, delivering due messages every minute. Press Ctrl+C to stop.");
-await bot.start({ allowed_updates: ["message"], onStart: (info) => console.log(`bot @${info.username} is running`) });
+await bot.start({ allowed_updates: ["message", "callback_query"], onStart: (info) => console.log(`bot @${info.username} is running`) });

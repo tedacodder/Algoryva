@@ -3,6 +3,6 @@
 import { webhookCallback } from "grammy";
 
 export function createWebhookHandler({ bot, secretToken }) {
-  const handle = webhookCallback(bot, "std/http", { secretToken, timeoutMilliseconds: 25_000 });
+  const handle = webhookCallback(bot, "std/http", { secretToken, timeoutMilliseconds: 55_000 });
   return (request) => handle(request);
 }
