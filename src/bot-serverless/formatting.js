@@ -1,3 +1,5 @@
+import { COMMANDS, SECTIONS } from "./commands.js";
+
 // Telegram HTML for the bot's own messages: quote blocks, spoilers, code, bold and italics. Every piece of user-facing text goes through esc().
 export const EAT_ZONE = "Africa/Addis_Ababa"; // Ethiopia does not use daylight saving time, so this is exact.
 
@@ -140,3 +142,69 @@ export function helpHtml() {
     "<i>Tags use Codeforces names, with dashes for spaces: <code>dfs-and-similar</code>.</i>",
   ].join("\n");
 }
+
+/** The card for one command: usage, what it does, examples, and its subcommands. */
+export function commandCardHtml(cmd) {
+  const lines = [`📖 <b>/${esc(cmd.name)}</b>`, `<blockquote>${esc(cmd.summary)}</blockquote>`, `<b>Usage</b>`, `<code>${esc(cmd.usage)}</code>`];
+  if (cmd.where === "group") lines.push("<i>Works in a group chat.</i>");
+  if (cmd.admin === true) lines.push("<i>Group admins only.</i>");
+  if (cmd.subcommands) {
+    lines.push("", "<b>Subcommands</b>");
+    for (const sub of cmd.subcommands) lines.push(`<code>${esc(sub.usage)}</code>${sub.admin ? " 🔒" : ""}\n   ${esc(sub.summary)}`);
+    lines.push("<i>🔒 needs a group admin</i>");
+  }
+  if (cmd.examples?.length && !cmd.subcommands) lines.push("", "<b>Examples</b>", `<pre>${cmd.examples.map(esc).join("\n")}</pre>`);
+  return lines.join("\n");
+}
+
+/** The overview: every section, with its commands and a one-line summary of each. */
+export function helpIndexHtml() {
+  const blocks = SECTIONS.map((section) => {
+    const items = COMMANDS.filter((c) => c.section === section.id).map((c) => `<code>/${esc(c.name)}</code> ${esc(c.summary)}`);
+    return [`<b>${esc(section.title)}</b>`, `<i>${esc(section.blurb)}</i>`, `<blockquote>${items.join("\n")}</blockquote>`].join("\n");
+  });
+  return ["❓ <b>Help</b>", "<i>Send /help followed by a command name for its details, for example /help roster.</i>", "", ...blocks].join("\n");
+}
+
+const PERIOD_LABEL = { week: "this week (7 days)", month: "this month (30 days)", all: "all time" };
+export const periodLabel = (period) => PERIOD_LABEL[period] ?? PERIOD_LABEL.week;
+
+export function progressBar(done, total) {
+  const cells = 10;
+  const filled = total > 0 ? Math.round((done / total) * cells) : 0;
+  return "▰".repeat(filled) + "▱".repeat(cells - filled);
+}
+
+export function leaderboardCheckingHtml(period) {
+  return [`📊 <b>Group leaderboard · ${esc(periodLabel(period))}</b>`, "<blockquote>⏳ Checking Codeforces for the group's members…</blockquote>", "<i>This takes about 30 seconds.</i>"].join("\n");
+}
+
+const MEDALS = ["🥇", "🥈", "🥉"];
+const cell = (value, width) => String(value).padEnd(width).slice(0, width);
+const NAME_WIDTH = 14;
+
+/** The ranking as a table, with medals for the top three, and the members still being checked. */
+export function leaderboardHtml(data) {
+  const lines = [`📊 <b>Group leaderboard · ${esc(periodLabel(data.period))}</b>`];
+  if (data.rows.length === 0) {
+    lines.push("<blockquote>No verified solves in this period yet. Solve something and check again.</blockquote>");
+  } else {
+    const header = "    Handle          Rating  Solved  Days  Cons  Score";
+    const body = data.rows.map((r) => {
+      const rank = MEDALS[r.rank - 1] ?? String(r.rank).padStart(2);
+      return `${rank}  ${cell(r.handle, NAME_WIDTH)}  ${cell(r.rating ?? "—", 6)}  ${cell(r.solved, 6)}  ${cell(r.activeDays, 4)}  ${cell(`${r.consistency}%`, 4)}  ${r.score}`;
+    });
+    lines.push(`<pre>${[header, ...body].map(esc).join("\n")}</pre>`);
+  }
+  if (data.pending.length) {
+    lines.push(`🔄 <b>Still being checked (${data.pending.length})</b>: ${data.pending.map((h) => `<code>${esc(h)}</code>`).join(", ")}`);
+    lines.push("<i>Press 🔄 Refresh to check the next group of students.</i>");
+  }
+  if (data.notRegistered.length) {
+    lines.push(`📝 <b>Not registered (${data.notRegistered.length})</b>: ${data.notRegistered.slice(0, 30).map((h) => `<code>${esc(h)}</code>`).join(", ")}`);
+  }
+  lines.push("", `<i>Score = solved + 2 × active days. Days = days with an accepted solve. Cons = active days ÷ period. Ties: consistency, then rating.</i>`);
+  lines.push(`<i>Checked ${esc(new Date(data.checkedAt).toISOString().slice(11, 16))} UTC · ${data.registered}/${data.rosterCount} registered</i>`);
+  return lines.join("\n");
+}
+

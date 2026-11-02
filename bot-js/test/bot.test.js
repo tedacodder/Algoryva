@@ -23,6 +23,13 @@ function makeHarness({ memberStatus = "member", siteOverrides = {} } = {}) {
     stop: async (chatId) => (site.calls.push(["stop", chatId]), { stopped: true }),
     due: async () => ({ items: [] }),
     ack: async () => ({ ok: true }),
+    leaderboard: async (chatId, period) => (site.calls.push(["leaderboard", chatId, period]), {
+      period, rosterCount: 2, registered: 2, notRegistered: [], pending: [], checkedAt: "2026-10-31T12:00:00.000Z",
+      rows: [
+        { rank: 1, handle: "tourist", rating: 3900, solved: 12, activeDays: 6, consistency: 86, score: 24 },
+        { rank: 2, handle: "jiangly", rating: null, solved: 5, activeDays: 2, consistency: 29, score: 9 },
+      ],
+    }),
     roster: async (chatId, action, handles) => (site.calls.push(["roster", chatId, action, handles]), { count: (handles ?? []).length, handles: handles ?? [] }),
     groupProblem: async (chatId, problem) => (site.calls.push(["groupProblem", chatId, problem]), problem ? { ref: problem, name: "Easy One" } : { ref: null, name: null }),
     groupReport: async (chatId) => (site.calls.push(["groupReport", chatId]), { problem: { ref: "1800/A", name: "Easy One" }, rosterCount: 2, registered: 2, notRegistered: [], solved: ["alice"], unsolved: ["bob"], pending: [], usesConnectedFallback: false }),
@@ -212,3 +219,77 @@ test("/report sends the class report as formatted HTML", async () => {
   assert.match(h.sent[0].text, /<b>Class report<\/b>/);
   assert.match(h.sent[0].text, /<blockquote>/);
 });
+
+function callbackUpdate(data, chatId = -1009000000777, messageId = 77) {
+  return {
+    update_id: 990,
+    callback_query: {
+      id: "cb1", from: { id: 42, is_bot: false, first_name: "Amy" }, chat_instance: "1", data,
+      message: { message_id: messageId, date: 0, chat: { id: chatId, type: "supergroup", title: "CP" }, from: { id: 1, is_bot: true, first_name: "CF" }, text: "x" },
+    },
+  };
+}
+
+test("/roster with no words shows its subcommands, and needs no admin", async () => {
+  const h = makeHarness({ memberStatus: "member" });
+  await h.bot.handleUpdate(h.update({ text: "/roster", chatType: "group", chatId: -1009000000777 }));
+  assert.match(h.sent[0].text, /Subcommands/);
+  assert.match(h.sent[0].text, /\/roster add/);
+});
+
+test("/setdaily with no problem shows its card", async () => {
+  const h = makeHarness({ memberStatus: "administrator" });
+  await h.bot.handleUpdate(h.update({ text: "/setdaily", chatType: "group", chatId: -1009000000777 }));
+  assert.equal(h.site.calls.length, 0);
+  assert.match(h.sent[0].text, /Subcommands/);
+});
+
+test("/help with a command name shows that command, and an unknown name is handled", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(h.update({ text: "/help roster" }));
+  assert.match(h.sent[0].text, /Subcommands/);
+  await h.bot.handleUpdate(h.update({ text: "/help nonsense" }));
+  assert.match(h.sent[1].text, /no command called/);
+  await h.bot.handleUpdate(h.update({ text: "/help" }));
+  assert.match(h.sent[2].text, /Send \/help followed by a command name/);
+});
+
+test("/leaderboard posts a checking message, then edits it into the table", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(h.update({ text: "/leaderboard", chatType: "group", chatId: -1009000000777 }));
+  assert.match(h.sent[0].text, /Checking Codeforces/);
+  assert.deepEqual(h.site.calls[0], ["leaderboard", "-1009000000777", "week"]);
+  const edit = h.telegramCalls.find((c) => c.method === "editMessageText");
+  assert.ok(edit, "the message is edited in place");
+  assert.match(edit.payload.text, /🥇  tourist/);
+  assert.equal(edit.payload.parse_mode, "HTML");
+});
+
+test("/leaderboard refused in a private chat, and an unknown period shows the card", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(h.update({ text: "/leaderboard" }));
+  assert.match(h.sent[0].text, /works in your group chat/);
+  const g = makeHarness();
+  await g.bot.handleUpdate(g.update({ text: "/leaderboard year", chatType: "group", chatId: -1009000000777 }));
+  assert.match(g.sent[0].text, /Subcommands|Usage|leaderboard/);
+  assert.equal(g.site.calls.length, 0);
+});
+
+test("the Refresh button edits the same message with the next batch", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(callbackUpdate("lb:month"));
+  assert.ok(h.telegramCalls.some((c) => c.method === "answerCallbackQuery"));
+  assert.deepEqual(h.site.calls[0], ["leaderboard", "-1009000000777", "month"]);
+  const edits = h.telegramCalls.filter((c) => c.method === "editMessageText");
+  assert.ok(edits.length >= 2, "checking state, then the table");
+  assert.equal(edits.at(-1).payload.message_id, 77);
+  assert.match(edits.at(-1).payload.text, /Group leaderboard/);
+});
+
+test("a website error during a refresh is shown in place, as a friendly line", async () => {
+  const h = makeHarness({ siteOverrides: { leaderboard: async () => { throw new SiteError(409, "group_not_enabled"); } } });
+  await h.bot.handleUpdate(callbackUpdate("lb:week"));
+  const last = h.telegramCalls.filter((c) => c.method === "editMessageText").at(-1);
+  assert.match(last.payload.text, /admin needs to send \/enable/);
+});
+
