@@ -139,3 +139,40 @@ describe("report", () => {
     expect(report.usesConnectedFallback).toBe(true);
   });
 });
+
+describe("roster validation", () => {
+  it("a real Codeforces account is added and registered in this group; an unknown handle is reported and not stored", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = new URL(String(input));
+        const handle = url.searchParams.get("handles") ?? "";
+        if (handle.startsWith("ghost")) return Response.json({ status: "FAILED", comment: `handles: User with handle ${handle} not found` }, { status: 400 });
+        return Response.json({ status: "OK", result: [{ handle, rating: 1200 }] });
+      }),
+    );
+    const r = await rosterAction(SECRET, GROUP, "add", ["tourist", "ghost_user"], { validate: true });
+    expect(r.added).toEqual(["tourist"]);
+    expect(r.invalid).toEqual(["ghost_user"]);
+    expect(r.handles).toEqual(["tourist"]);
+    expect(await db.cfHandle.count({ where: { handle: "tourist" } })).toBe(1);
+    expect(await db.cfHandle.count({ where: { handle: "ghost_user" } })).toBe(0);
+    vi.unstubAllGlobals();
+  });
+
+  it("handles beyond this request's budget are reported as not checked yet", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const handle = new URL(String(input)).searchParams.get("handles") ?? "";
+        return Response.json({ status: "OK", result: [{ handle, rating: null }] });
+      }),
+    );
+    const names = Array.from({ length: FETCH_BUDGET + 2 }, (_, i) => `checked${i}x`);
+    const r = await rosterAction(SECRET, GROUP, "add", names, { validate: true });
+    expect(r.added.length).toBe(FETCH_BUDGET);
+    expect(r.unchecked.length).toBe(2);
+    vi.unstubAllGlobals();
+  });
+});
+

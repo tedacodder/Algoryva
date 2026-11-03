@@ -261,7 +261,7 @@ test("/leaderboard posts a checking message, then edits it into the table", asyn
   assert.deepEqual(h.site.calls[0], ["leaderboard", "-1009000000777", "week"]);
   const edit = h.telegramCalls.find((c) => c.method === "editMessageText");
   assert.ok(edit, "the message is edited in place");
-  assert.match(edit.payload.text, /🥇  tourist/);
+  assert.match(edit.payload.text, /🥇 <b>tourist<\/b>/);
   assert.equal(edit.payload.parse_mode, "HTML");
 });
 
@@ -284,6 +284,8 @@ test("the Refresh button edits the same message with the next batch", async () =
   assert.ok(edits.length >= 2, "checking state, then the table");
   assert.equal(edits.at(-1).payload.message_id, 77);
   assert.match(edits.at(-1).payload.text, /Group leaderboard/);
+  // The checking state keeps the buttons, so the table never loses its controls.
+  assert.ok(edits[0].payload.reply_markup, "the checking message keeps its buttons");
 });
 
 test("a website error during a refresh is shown in place, as a friendly line", async () => {
@@ -291,5 +293,11 @@ test("a website error during a refresh is shown in place, as a friendly line", a
   await h.bot.handleUpdate(callbackUpdate("lb:week"));
   const last = h.telegramCalls.filter((c) => c.method === "editMessageText").at(-1);
   assert.match(last.payload.text, /admin needs to send \/enable/);
+});
+
+test("/support replies with the support email", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(h.update({ text: "/support" }));
+  assert.match(h.sent[0].text, /Algoryva@gmail\.com/);
 });
 

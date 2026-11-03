@@ -54,7 +54,7 @@ test("scheduled messages get the same spoiler on their tags", () => {
   assert.match(toHtml("⭐ Rating 1100   🏷️ #greedy #sortings"), /<tg-spoiler>#greedy #sortings<\/tg-spoiler>/);
 });
 
-import { commandCardHtml, helpIndexHtml, leaderboardHtml, leaderboardCheckingHtml, progressBar } from "../src/formatting.js";
+import { commandCardHtml, helpIndexHtml, leaderboardHtml, leaderboardCheckingHtml, progressBar, rosterResultHtml, supportHtml } from "../src/formatting.js";
 import { commandByName } from "../src/commands.js";
 
 const ROWS = [
@@ -63,33 +63,51 @@ const ROWS = [
 ];
 const DATA = { period: "week", rows: ROWS, rosterCount: 3, registered: 2, notRegistered: ["ksun48"], pending: [], checkedAt: "2026-10-31T12:00:00.000Z" };
 
-test("the leaderboard is a table with medals, and every handle appears in it", () => {
+test("the leaderboard is phone-friendly: no code block, each member on two short lines with the rating beside the name", () => {
   const html = leaderboardHtml(DATA);
-  assert.match(html, /<pre>/);
-  assert.ok(html.includes("🥇  tourist"));
-  assert.ok(html.includes("🥈  jiangly"));
-  assert.match(html, /—/); // an unrated member shows a dash, not "null"
-  assert.doesNotMatch(html, /null/);
+  assert.doesNotMatch(html, /<pre>/);
+  assert.match(html, /🥇 <b>tourist<\/b> — 3900/);
+  assert.match(html, /🥈 <b>jiangly<\/b> — unrated/);
+  assert.match(html, /12 solved · 86% consistent/);
+  assert.doesNotMatch(html, /score|Score|Days|active days/);
 });
 
-test("the leaderboard explains the score, and lists the members still being checked", () => {
+test("the leaderboard lists the members still being checked, and the not-registered ones", () => {
   const html = leaderboardHtml({ ...DATA, pending: ["amy"] });
-  assert.match(html, /Score = solved \+ 2 × active days/);
   assert.match(html, /Still being checked \(1\)/);
   assert.match(html, /Refresh/);
   assert.match(html, /Not registered \(1\)/);
   assert.match(html, /2\/3 registered/);
 });
 
-test("an empty period says so, instead of printing an empty table", () => {
+test("an empty period says so", () => {
   const html = leaderboardHtml({ ...DATA, rows: [], registered: 0 });
   assert.match(html, /No verified solves in this period yet/);
-  assert.doesNotMatch(html, /<pre>/);
+  assert.doesNotMatch(html, /🥇/);
 });
 
-test("names in the table are escaped", () => {
+test("names in the leaderboard are escaped", () => {
   const html = leaderboardHtml({ ...DATA, rows: [{ ...ROWS[0], handle: "a<b" }] });
   assert.ok(html.includes("a&lt;b"));
+  assert.doesNotMatch(html, /a<b/);
+});
+
+test("the roster result lists who was registered, who is not an account, and who is not checked yet", () => {
+  const html = rosterResultHtml("add", { count: 2, handles: ["tourist", "jiangly"], added: ["tourist"], invalid: ["ghost"], unchecked: ["later"] });
+  assert.match(html, /Registered \(1\)/);
+  assert.match(html, /Not a Codeforces account \(1\)/);
+  assert.match(html, /Not checked yet \(1\)/);
+  assert.match(html, /<code>tourist<\/code>/);
+});
+
+test("the roster list shows the students, or says it is empty", () => {
+  assert.match(rosterResultHtml("list", { count: 2, handles: ["tourist", "jiangly"] }), /<code>jiangly<\/code>/);
+  assert.match(rosterResultHtml("list", { count: 0, handles: [] }), /The list is empty/);
+});
+
+test("the help footer and the support card show the support email", () => {
+  assert.match(helpIndexHtml(), /Algoryva@gmail\.com/);
+  assert.match(supportHtml(), /Algoryva@gmail\.com/);
 });
 
 test("the progress bar fills in proportion", () => {

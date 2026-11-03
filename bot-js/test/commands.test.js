@@ -29,3 +29,8 @@ test("setdaily and leaderboard list every form they accept", () => {
 test("the group-only commands are marked as group-only", () => {
   for (const name of ["enable", "disable", "roster", "setdaily", "report", "leaderboard"]) assert.equal(commandByName(name).where, "group", name);
 });
+
+test("support is listed with the support email in its summary", () => {
+  assert.match(commandByName("support").summary, /Algoryva@gmail\.com/);
+});
+

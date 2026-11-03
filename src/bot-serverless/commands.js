@@ -1,3 +1,5 @@
+export const SUPPORT_EMAIL = "Algoryva@gmail.com";
+
 // The single source of truth for the bot's commands. The /help command in the bot and the public guide on the website both read this list.
 export const SECTIONS = [
   { id: "practice", title: "🎲 Practice", blurb: "Problems for you, every day." },
@@ -11,6 +13,7 @@ export const COMMANDS = [
   { name: "start", section: "practice", usage: "/start", summary: "Open the menu and get today's problem.", examples: ["/start"], where: "private" },
   { name: "random", section: "practice", usage: "/random [rating | low-high] [tags]", summary: "A random problem you have not solved yet.", examples: ["/random", "/random 1400", "/random 1200-1600 dp graphs"], where: "any" },
   { name: "daily", section: "practice", usage: "/daily", summary: "Today's challenge.", examples: ["/daily"], where: "any" },
+  { name: "support", section: "practice", usage: "/support", summary: "How to reach the team. Email: Algoryva@gmail.com", examples: ["/support"], where: "any" },
   { name: "help", section: "practice", usage: "/help [command]", summary: "The command list, or the details of one command.", examples: ["/help", "/help roster"], where: "any" },
   { name: "contests", section: "contests", usage: "/contests", summary: "Upcoming contests, soonest first, with Ethiopian and UTC time and a countdown.", examples: ["/contests"], where: "any" },
   { name: "next", section: "contests", usage: "/next", summary: "The next contest, with the time left.", examples: ["/next"], where: "any" },

@@ -53,7 +53,7 @@ export function createSite({ base, secret, fetchImpl = fetch }) {
     stop: (chatId) => post("community/stop", { chatId }),
     due: () => post("notifications/due"),
     ack: (deliveryId, outcome) => post("notifications/ack", { deliveryId, outcome }),
-    roster: (chatId, action, handles) => post("community/roster", handles ? { chatId, action, handles } : { chatId, action }),
+    roster: (chatId, action, handles) => post("community/roster", handles ? { chatId, action, handles } : { chatId, action }, { timeoutMs: 60_000 }),
     groupProblem: (chatId, problem) => post("community/group-problem", { chatId, problem }),
     // A report can check up to 12 Codeforces handles, which takes about 30 seconds with Codeforces' rate limit.
     groupReport: (chatId) => post("community/group-report", { chatId }, { timeoutMs: 60_000 }),

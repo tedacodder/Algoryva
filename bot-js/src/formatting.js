@@ -1,4 +1,4 @@
-import { COMMANDS, SECTIONS } from "./commands.js";
+import { COMMANDS, SECTIONS, SUPPORT_EMAIL } from "./commands.js";
 
 // Telegram HTML for the bot's own messages: quote blocks, spoilers, code, bold and italics. Every piece of user-facing text goes through esc().
 export const EAT_ZONE = "Africa/Addis_Ababa"; // Ethiopia does not use daylight saving time, so this is exact.
@@ -163,7 +163,14 @@ export function helpIndexHtml() {
     const items = COMMANDS.filter((c) => c.section === section.id).map((c) => `<code>/${esc(c.name)}</code> ${esc(c.summary)}`);
     return [`<b>${esc(section.title)}</b>`, `<i>${esc(section.blurb)}</i>`, `<blockquote>${items.join("\n")}</blockquote>`].join("\n");
   });
-  return ["❓ <b>Help</b>", "<i>Send /help followed by a command name for its details, for example /help roster.</i>", "", ...blocks].join("\n");
+  return [
+    "❓ <b>Help</b>",
+    "<i>Send /help followed by a command name for its details, for example /help roster.</i>",
+    "",
+    ...blocks,
+    "",
+    `💬 <b>Support</b>: <code>${esc(SUPPORT_EMAIL)}</code>`,
+  ].join("\n");
 }
 
 const PERIOD_LABEL = { week: "this week (7 days)", month: "this month (30 days)", all: "all time" };
@@ -183,18 +190,18 @@ const MEDALS = ["🥇", "🥈", "🥉"];
 const cell = (value, width) => String(value).padEnd(width).slice(0, width);
 const NAME_WIDTH = 14;
 
-/** The ranking as a table, with medals for the top three, and the members still being checked. */
+/** The ranking, one member per two short lines, so it reads well on a phone. Points and day counts are not shown. */
 export function leaderboardHtml(data) {
   const lines = [`📊 <b>Group leaderboard · ${esc(periodLabel(data.period))}</b>`];
   if (data.rows.length === 0) {
     lines.push("<blockquote>No verified solves in this period yet. Solve something and check again.</blockquote>");
   } else {
-    const header = "    Handle          Rating  Solved  Days  Cons  Score";
-    const body = data.rows.map((r) => {
-      const rank = MEDALS[r.rank - 1] ?? String(r.rank).padStart(2);
-      return `${rank}  ${cell(r.handle, NAME_WIDTH)}  ${cell(r.rating ?? "—", 6)}  ${cell(r.solved, 6)}  ${cell(r.activeDays, 4)}  ${cell(`${r.consistency}%`, 4)}  ${r.score}`;
+    const rows = data.rows.map((r) => {
+      const place = MEDALS[r.rank - 1] ?? `${r.rank}.`;
+      const rating = r.rating == null ? "unrated" : String(r.rating);
+      return `${place} <b>${esc(r.handle)}</b> — ${esc(rating)}\n      ${r.solved} solved · ${r.consistency}% consistent`;
     });
-    lines.push(`<pre>${[header, ...body].map(esc).join("\n")}</pre>`);
+    lines.push(`<blockquote>${rows.join("\n")}</blockquote>`);
   }
   if (data.pending.length) {
     lines.push(`🔄 <b>Still being checked (${data.pending.length})</b>: ${data.pending.map((h) => `<code>${esc(h)}</code>`).join(", ")}`);
@@ -203,8 +210,30 @@ export function leaderboardHtml(data) {
   if (data.notRegistered.length) {
     lines.push(`📝 <b>Not registered (${data.notRegistered.length})</b>: ${data.notRegistered.slice(0, 30).map((h) => `<code>${esc(h)}</code>`).join(", ")}`);
   }
-  lines.push("", `<i>Score = solved + 2 × active days. Days = days with an accepted solve. Cons = active days ÷ period. Ties: consistency, then rating.</i>`);
+  lines.push("", "<i>Ranked by points: problems solved, plus consistency (days with a solve ÷ days in the period). Ties go to rating.</i>");
   lines.push(`<i>Checked ${esc(new Date(data.checkedAt).toISOString().slice(11, 16))} UTC · ${data.registered}/${data.rosterCount} registered</i>`);
   return lines.join("\n");
 }
 
+/** The result of a roster change: who was registered, who is not a Codeforces account, and who still needs checking. */
+export function rosterResultHtml(action, data) {
+  const names = (list) => list.map((h) => `<code>${esc(h)}</code>`).join(", ");
+  const count = `${data.count} student${data.count === 1 ? "" : "s"}`;
+  const lines = [`📋 <b>Class list</b> · ${count}`];
+  if (action === "list") {
+    lines.push(data.handles.length ? `<blockquote>${names(data.handles)}</blockquote>` : "<blockquote>The list is empty. Add students with /roster add.</blockquote>");
+    return lines.join("\n");
+  }
+  if (action === "remove" || action === "clear") lines.push("🗑 <b>Updated.</b>");
+  if (data.added?.length) lines.push(`✅ <b>Registered (${data.added.length})</b>`, `<blockquote>${names(data.added)}</blockquote>`);
+  if (data.invalid?.length) lines.push(`❌ <b>Not a Codeforces account (${data.invalid.length})</b>`, `<blockquote>${names(data.invalid)}</blockquote>`, "<i>Check the spelling, then send them again.</i>");
+  if (data.unchecked?.length) lines.push(`⏳ <b>Not checked yet (${data.unchecked.length})</b>`, `<blockquote>${names(data.unchecked)}</blockquote>`, "<i>Send these again with /roster add to check them.</i>");
+  return lines.join("\n");
+}
+
+export function supportHtml() {
+  return [
+    "💬 <b>Support</b>",
+    `<blockquote>Email: <code>${esc(SUPPORT_EMAIL)}</code>\nInclude the command you sent and what the bot replied, so we can help quickly.</blockquote>`,
+  ].join("\n");
+}

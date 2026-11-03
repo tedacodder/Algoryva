@@ -129,6 +129,8 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
 
   // /help lists every section; /help <command> shows that command's card. The web guide link stays under the message.
   const guideButton = () => (docsUrl ? new InlineKeyboard().url("📖 Full guide on the website", docsUrl) : undefined);
+  bot.command("support", (ctx) => replyHtml(ctx, F.supportHtml(), { menu: true }));
+
   bot.command(["help", "menu"], (ctx) => {
     const topic = (ctx.match ?? "").trim().replace(/^\//, "").toLowerCase();
     if (!topic) return replyHtml(ctx, F.helpIndexHtml(), { menu: true, inline: guideButton() });
@@ -198,7 +200,7 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
     if (parsed.action !== "list" && !(await isGroupAdmin(ctx))) return reply(ctx, T.NOT_ADMIN);
     return act(ctx, async () => {
       const data = await site.roster(chatId(ctx), parsed.action, parsed.handles);
-      return { html: F.meHtml(data.handles.map((handle) => ({ handle, rating: null, solved: 0 }))).replace("Connected handles", `Roster (${data.count})`) };
+      return { html: F.rosterResultHtml(parsed.action, data) };
     });
   });
 
@@ -250,7 +252,7 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
       await editMessage(chat, messageId, F.leaderboardHtml(data), leaderboardKeyboard(period));
     } catch (error) {
       const text = error instanceof SiteError ? T.errorText(error.code) : T.GENERIC;
-      if (!(error instanceof SiteError)) console.error("leaderboard failed:", error?.name ?? "unknown");
+      console.error("leaderboard failed:", error instanceof SiteError ? error.code : error?.name ?? "unknown");
       await editMessage(chat, messageId, `<blockquote>${text}</blockquote>`, leaderboardKeyboard(period)).catch(() => undefined);
     }
   }
@@ -268,7 +270,8 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
     const message = ctx.callbackQuery.message;
     if (!message) return undefined;
     const period = ctx.callbackQuery.data.slice(3);
-    await editMessage(message.chat.id, message.message_id, F.leaderboardCheckingHtml(period), undefined);
+    // The checking state keeps the buttons, so a refresh never leaves the table without its controls.
+    await editMessage(message.chat.id, message.message_id, F.leaderboardCheckingHtml(period), leaderboardKeyboard(period));
     return runLeaderboard(message.chat.id, message.message_id, period);
   });
 
