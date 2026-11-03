@@ -9,6 +9,7 @@ import { rosterAction, ROSTER_MAX } from "@/lib/bot/classroom";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60; // up to 12 Codeforces checks per request
 
 const bodySchema = z
   .object({
@@ -23,5 +24,6 @@ export const POST = handle(async (request) => {
   const secret = botSecret();
   const { chatId, action, handles: list } = parseWith(bodySchema, await readSignedJson(request, MAX_BODY_SMALL));
   await limitOrThrow(`bot-roster:${hashTelegramId(secret, chatId)}`, 120, HOUR);
-  return json(await rosterAction(secret, chatId, action, list ?? []));
+  // Adds and sets check each handle on Codeforces, so a valid account is registered without /connect.
+  return json(await rosterAction(secret, chatId, action, list ?? [], { validate: true }));
 });

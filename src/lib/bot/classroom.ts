@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { ApiError } from "@/lib/api/errors";
 import { hashTelegramId } from "@/lib/telegram/bot-auth";
-import { CodeforcesError, problemset, userSolved, USER_TTL_MS } from "@/lib/codeforces/client";
+import { CodeforcesError, problemset, userInfo, userSolved, USER_TTL_MS } from "@/lib/codeforces/client";
 import { pickDailyProblem, problemRef, type CfProblem } from "@/lib/codeforces/pick";
 import { utcDay } from "@/lib/bot/daily";
 
@@ -55,12 +55,62 @@ function unique(handles: string[]): string[] {
   return out;
 }
 
+export type RosterResult = { count: number; handles: string[]; added: string[]; invalid: string[]; unchecked: string[] };
+
+/**
+ * Checks each handle on Codeforces. A real account is added to the class list and registered in this group, so the student
+ * counts as registered without running /connect. A handle Codeforces does not know is reported, not stored. A handle beyond
+ * this request's budget is reported as not checked yet, so the admin can send it again.
+ */
+async function validateAndRegister(groupId: string, incoming: string[], now: Date) {
+  const added: string[] = [];
+  const invalid: string[] = [];
+  const unchecked: string[] = [];
+  let budget = FETCH_BUDGET;
+  for (const handle of incoming) {
+    const cached = await db.cfCache.findUnique({ where: { key: `user:${handle.toLowerCase()}` } });
+    const fresh = cached !== null && now.getTime() - cached.fetchedAt.getTime() < USER_TTL_MS;
+    if (!fresh) {
+      if (budget <= 0) {
+        unchecked.push(handle);
+        continue;
+      }
+      budget -= 1;
+    }
+    let canonical: string;
+    try {
+      canonical = (await userInfo(handle, now)).handle;
+    } catch (e) {
+      if (e instanceof CodeforcesError && e.kind === "not_found") invalid.push(handle);
+      else unchecked.push(handle);
+      continue;
+    }
+    try {
+      await db.groupRoster.create({ data: { recipientId: groupId, handle: canonical } });
+    } catch (e) {
+      if (!isUnique(e)) throw e;
+    }
+    const known = await db.cfHandle.findFirst({ where: { recipientId: groupId, handle: { equals: canonical, mode: "insensitive" } }, select: { id: true } });
+    if (!known) {
+      try {
+        await db.cfHandle.create({ data: { recipientId: groupId, handle: canonical } });
+      } catch (e) {
+        if (!isUnique(e)) throw e;
+      }
+    }
+    added.push(canonical);
+  }
+  return { added, invalid, unchecked };
+}
+
 export async function rosterAction(
   secret: string,
   chatId: string,
   action: "set" | "add" | "remove" | "list" | "clear",
   handles: string[],
-): Promise<{ count: number; handles: string[] }> {
+  options: { validate?: boolean } = {},
+): Promise<RosterResult> {
+  const { validate = false } = options;
   const group = await groupChat(secret, chatId);
   const bad = handles.find((h) => !HANDLE_RE.test(h));
   if (bad !== undefined) throw new ApiError(400, "invalid_handle", "Handles are 3 to 24 letters, numbers, dots, dashes or underscores.");
@@ -68,20 +118,28 @@ export async function rosterAction(
   if (action === "remove") {
     await db.groupRoster.deleteMany({ where: { recipientId: group.id, OR: handles.map((h) => ({ handle: { equals: h, mode: "insensitive" as const } })) } });
   }
+  let added: string[] = [];
+  let invalid: string[] = [];
+  let unchecked: string[] = [];
   if (action === "set" || action === "add") {
     const current = await db.groupRoster.count({ where: { recipientId: group.id } });
     const incoming = unique(handles);
     if (current + incoming.length > ROSTER_MAX) throw new ApiError(400, "roster_too_large", `A roster holds up to ${ROSTER_MAX} handles.`);
-    for (const handle of incoming) {
-      try {
-        await db.groupRoster.create({ data: { recipientId: group.id, handle } });
-      } catch (e) {
-        if (!isUnique(e)) throw e;
+    if (validate) {
+      ({ added, invalid, unchecked } = await validateAndRegister(group.id, incoming, new Date()));
+    } else {
+      for (const handle of incoming) {
+        try {
+          await db.groupRoster.create({ data: { recipientId: group.id, handle } });
+        } catch (e) {
+          if (!isUnique(e)) throw e;
+        }
       }
+      added = incoming;
     }
   }
   const rows = await db.groupRoster.findMany({ where: { recipientId: group.id }, orderBy: { addedAt: "asc" }, select: { handle: true } });
-  return { count: rows.length, handles: rows.map((r) => r.handle) };
+  return { count: rows.length, handles: rows.map((r) => r.handle), added, invalid, unchecked };
 }
 
 export async function groupProblemAction(secret: string, chatId: string, problem: string | null, now: Date): Promise<{ ref: string | null; name: string | null }> {

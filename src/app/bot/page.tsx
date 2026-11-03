@@ -81,6 +81,24 @@ export default function BotGuidePage() {
         </section>
       ))}
 
+      <section id="roster" className="scroll-mt-24 space-y-3">
+        <h2 className="text-2xl font-semibold">👥 How the class list works</h2>
+        <p className="text-slate-700">
+          When a group admin adds handles with <code className="font-mono">/roster add</code> or <code className="font-mono">/roster set</code>,
+          the bot checks each one on Codeforces. A real account is added to the class and counts as registered, so students do not need
+          to run <code className="font-mono">/connect</code> separately. A handle Codeforces does not know is reported and not stored. A
+          handle beyond the checks of one request is reported as not checked yet. Send those again to check them.
+        </p>
+      </section>
+
+      <section id="support" className="scroll-mt-24 space-y-2">
+        <h2 className="text-2xl font-semibold">💬 Support</h2>
+        <p className="text-slate-700">
+          Email <a className="underline" href="mailto:Algoryva@gmail.com">Algoryva@gmail.com</a>, and include the command you sent and what the
+          bot replied.
+        </p>
+      </section>
+
       <section id="leaderboard" className="scroll-mt-24 space-y-4">
         <h2 className="text-2xl font-semibold">📊 How the leaderboard works</h2>
         <p className="text-slate-700">
