@@ -96,7 +96,7 @@ test("the roster result lists who was registered, who is not an account, and who
   const html = rosterResultHtml("add", { count: 2, handles: ["tourist", "jiangly"], added: ["tourist"], invalid: ["ghost"], unchecked: ["later"] });
   assert.match(html, /Registered \(1\)/);
   assert.match(html, /Not a Codeforces account \(1\)/);
-  assert.match(html, /Not checked yet \(1\)/);
+  assert.match(html, /Queued for checking \(1\)/);
   assert.match(html, /<code>tourist<\/code>/);
 });
 
@@ -130,3 +130,10 @@ test("the help index lists every section and the commands under it", () => {
   assert.match(html, /Groups and classes/);
   assert.match(html, /<code>\/leaderboard<\/code>/);
 });
+
+test("students still being verified are said so on the leaderboard and in the roster reply", () => {
+  assert.match(leaderboardHtml({ ...DATA, checking: 3 }), /3 students are still being verified/);
+  assert.match(rosterResultHtml("add", { count: 5, handles: [], added: [], invalid: [], unchecked: [], checking: 45 }), /Checking on Codeforces: 45/);
+  assert.doesNotMatch(leaderboardHtml({ ...DATA, checking: 0 }), /still being verified/);
+});
+
