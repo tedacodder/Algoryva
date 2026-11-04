@@ -265,14 +265,25 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
     return runLeaderboard(ctx.chat.id, placeholder.message_id, period);
   });
 
+  // Every press is logged (the period only, never a token or a name), so a failing press is visible in the Vercel logs.
   bot.callbackQuery(/^lb:(week|month|all)$/, async (ctx) => {
-    await ctx.answerCallbackQuery({ text: "Refreshing…" });
-    const message = ctx.callbackQuery.message;
-    if (!message) return undefined;
     const period = ctx.callbackQuery.data.slice(3);
-    // The checking state keeps the buttons, so a refresh never leaves the table without its controls.
-    await editMessage(message.chat.id, message.message_id, F.leaderboardCheckingHtml(period), leaderboardKeyboard(period));
-    return runLeaderboard(message.chat.id, message.message_id, period);
+    console.log("refresh started:", period);
+    await ctx.answerCallbackQuery({ text: "Refreshing…" }).catch(() => undefined);
+    const message = ctx.callbackQuery.message;
+    if (!message) {
+      console.error("refresh: the table is too old to edit (no message attached)");
+      return undefined;
+    }
+    try {
+      await editMessage(message.chat.id, message.message_id, F.leaderboardCheckingHtml(period), leaderboardKeyboard(period));
+      await runLeaderboard(message.chat.id, message.message_id, period);
+      console.log("refresh finished:", period);
+    } catch (error) {
+      console.error("refresh failed:", error?.name ?? "unknown");
+      await editMessage(message.chat.id, message.message_id, "<blockquote>Could not refresh just now. Press 🔄 Refresh to try again.</blockquote>", leaderboardKeyboard(period)).catch(() => undefined);
+    }
+    return undefined;
   });
 
   // ---- keyboard buttons (private chats only: Telegram does not deliver taps from groups to bots) ----------------
