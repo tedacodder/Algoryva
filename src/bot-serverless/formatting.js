@@ -212,7 +212,7 @@ export function leaderboardHtml(data) {
   }
   if (data.checking > 0) lines.push(`⏳ <b>${data.checking} student${data.checking === 1 ? " is" : "s are"} still being verified</b>. They join the table automatically.`);
   lines.push("", "<i>Ranked by points: problems solved, plus consistency (days with a solve ÷ days in the period). Ties go to rating.</i>");
-  lines.push(`<i>Checked ${esc(new Date(data.checkedAt).toISOString().slice(11, 16))} UTC · ${data.registered}/${data.rosterCount} registered</i>`);
+  lines.push(`<i>Updated ${esc(new Date(data.checkedAt).toISOString().slice(11, 19))} UTC · ${data.registered}/${data.rosterCount} registered</i>`);
   return lines.join("\n");
 }
 
