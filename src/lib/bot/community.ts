@@ -258,11 +258,17 @@ export async function disconnectHandle(secret: string, chatId: string, handle?: 
 }
 
 /** The handles connected to a chat, with rating and the number of distinct problems solved. */
-export async function connectedHandles(secret: string, chatId: string, now: Date): Promise<{ handle: string; rating: number | null; solved: number }[]> {
+export async function connectedHandles(secret: string, chatId: string, now: Date): Promise<{ handle: string; rating: number | null; solved: number | null; pending?: true }[]> {
   const recipient = await findChat(secret, chatId);
   if (!recipient) return [];
-  const out: { handle: string; rating: number | null; solved: number }[] = [];
+  // One shared time budget, so a chat with many handles still answers within the platform limit. Handles past it are marked pending.
+  const deadline = Date.now() + 40_000;
+  const out: { handle: string; rating: number | null; solved: number | null; pending?: true }[] = [];
   for (const handle of await handlesOf(recipient.id)) {
+    if (Date.now() >= deadline) {
+      out.push({ handle, rating: null, solved: null, pending: true });
+      continue;
+    }
     let rating: number | null = null;
     try {
       rating = (await userInfo(handle, now)).rating;

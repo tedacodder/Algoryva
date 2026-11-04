@@ -176,6 +176,7 @@ export async function rosterAction(
       added = incoming;
     }
   }
+  if (action === "list") await checkPending(group.id, new Date(), 15_000); // /roster list also finishes queued checks
   const valid = await db.groupRoster.findMany({ where: { recipientId: group.id, status: "valid" }, orderBy: { addedAt: "asc" }, select: { handle: true } });
   const checking = await db.groupRoster.count({ where: { recipientId: group.id, status: "pending" } });
   return { count: valid.length, handles: valid.map((r) => r.handle), added, invalid, unchecked, checking };

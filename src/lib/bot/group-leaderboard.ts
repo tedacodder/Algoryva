@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ApiError } from "@/lib/api/errors";
 import { hashTelegramId } from "@/lib/telegram/bot-auth";
 import { CodeforcesError, userAccepted, userInfo, type Accepted } from "@/lib/codeforces/client";
+import { checkPending } from "@/lib/bot/classroom";
 
 /** Codeforces calls one request may spend on a refresh. The rest of the members are listed as pending and filled by the next press. */
 export const LEADERBOARD_BUDGET_MS = 35_000;
@@ -81,6 +82,8 @@ async function cachedRating(handle: string, now: Date): Promise<number | null | 
 export async function groupLeaderboard(secret: string, chatId: string, period: Period, now: Date, options: { budgetMs?: number } = {}) {
   const deadline = Date.now() + (options.budgetMs ?? LEADERBOARD_BUDGET_MS);
   const group = await groupRecipient(secret, chatId);
+  // A Refresh also checks the students queued for checking, so the class list finishes without waiting for the background run.
+  await checkPending(group.id, now, Math.floor(((options.budgetMs ?? LEADERBOARD_BUDGET_MS)) * 0.4));
   const rosterRows = await db.groupRoster.findMany({ where: { recipientId: group.id, status: "valid" }, orderBy: { addedAt: "asc" }, select: { handle: true } });
   const checking = await db.groupRoster.count({ where: { recipientId: group.id, status: "pending" } });
   const usesConnectedFallback = rosterRows.length === 0;

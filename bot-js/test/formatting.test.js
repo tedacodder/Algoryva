@@ -137,3 +137,11 @@ test("students still being verified are said so on the leaderboard and in the ro
   assert.doesNotMatch(leaderboardHtml({ ...DATA, checking: 0 }), /still being verified/);
 });
 
+import { meHtml } from "../src/formatting.js";
+
+test("a handle that could not be looked up in time says it is checking", () => {
+  const html = meHtml([{ handle: "amy", rating: null, solved: null, pending: true }, { handle: "ben", rating: 1200, solved: 4 }]);
+  assert.match(html, /checking, try again shortly/);
+  assert.match(html, /rating <b>1200<\/b> · 4 solved/);
+});
+

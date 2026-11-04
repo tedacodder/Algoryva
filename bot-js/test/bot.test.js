@@ -126,10 +126,12 @@ test("an unexpected error shows the generic line and never the raw error text", 
   assert.ok(!h.sent[0].text.includes("secret internal detail"));
 });
 
-test("buttons are ignored in groups, where Telegram does not deliver them", async () => {
-  const h = makeHarness();
-  await h.bot.handleUpdate(h.update({ text: "🎲 Random", chatType: "group", chatId: -1009000000001 }));
-  assert.equal(h.site.calls.length, 0);
+test("buttons work in groups too, so a group can use them like a private chat", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const contests = [{ id: 9, name: "Group Button Round", startTimeSeconds: now + 3600, durationSeconds: 7200, url: "https://codeforces.com/contests/9" }];
+  const h = makeHarness({ siteOverrides: { contests: async () => ({ text: "x", contests }) } });
+  await h.bot.handleUpdate(h.update({ text: "🏆 Contests", chatType: "group", chatId: -1009000000777 }));
+  assert.match(h.sent.at(-1).text, /Group Button Round/);
 });
 
 test("/stop calls the website and confirms", async () => {
@@ -311,14 +313,21 @@ function groupCallbackUpdate(data, chatId = -1009000000777) {
   };
 }
 
-test("a group's replies carry the group buttons, so the group can use them", async () => {
+test("a group's replies carry the same button keyboard as the private chat", async () => {
   const h = makeHarness();
   await h.bot.handleUpdate(h.update({ text: "/contests", chatType: "group", chatId: -1009000000777 }));
   const sent = h.telegramCalls.filter((c) => c.method === "sendMessage").at(-1);
-  const rows = sent.payload.reply_markup.inline_keyboard.flat().map((b) => b.callback_data ?? b.url);
-  assert.ok(rows.includes("gm:random") && rows.includes("gm:contests") && rows.includes("gm:next") && rows.includes("gm:leaderboard"));
+  const labels = sent.payload.reply_markup.keyboard.flat().map((b) => b.text);
+  assert.ok(labels.includes("🎲 Random") && labels.includes("🏆 Contests") && labels.includes("⏰ Next Contest"));
 });
 
+test("a button tapped in a group works the same way it does in a private chat", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const contests = [{ id: 3, name: "Tap Round", startTimeSeconds: now + 3600, durationSeconds: 7200, url: "https://codeforces.com/contests/3" }];
+  const h = makeHarness({ siteOverrides: { contests: async () => ({ text: "x", contests }) } });
+  await h.bot.handleUpdate(h.update({ text: "🏆 Contests", chatType: "group", chatId: -1009000000777 }));
+  assert.match(h.sent.at(-1).text, /Tap Round/);
+});
 test("the group Contests button answers in the group with the contest list", async () => {
   const now = Math.floor(Date.now() / 1000);
   const contests = [{ id: 1, name: "Group Round", startTimeSeconds: now + 3600, durationSeconds: 7200, url: "https://codeforces.com/contests/1" }];

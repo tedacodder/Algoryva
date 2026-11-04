@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DESCRIPTION, SHORT_DESCRIPTION, botCommands, applyProfile, readToken } from "../src/profile.js";
+import { DESCRIPTION, SHORT_DESCRIPTION, privateMenu, groupMenu, applyProfile, readToken } from "../src/profile.js";
+
+test("the About text fits Telegram's limit and is a single line", () => {
+  assert.ok(SHORT_DESCRIPTION.length <= 120, `about is ${SHORT_DESCRIPTION.length} characters`);
+  assert.ok(!SHORT_DESCRIPTION.includes("\n"));
+});
 
 test("the description fits Telegram's limit and names the support email", () => {
   assert.ok(DESCRIPTION.length <= 512, `description is ${DESCRIPTION.length} characters`);
@@ -8,27 +13,36 @@ test("the description fits Telegram's limit and names the support email", () => 
   assert.match(DESCRIPTION, /\/start/);
 });
 
-test("the short description fits Telegram's limit", () => {
-  assert.ok(SHORT_DESCRIPTION.length <= 120);
-});
-
-test("every command in the menu is valid for Telegram", () => {
-  const commands = botCommands();
-  assert.ok(commands.length > 0 && commands.length <= 100);
-  for (const c of commands) {
-    assert.match(c.command, /^[a-z0-9_]{1,32}$/, c.command);
-    assert.ok(c.description.length >= 3 && c.description.length <= 256, `${c.command} description`);
+test("every menu entry is valid for Telegram", () => {
+  for (const list of [privateMenu(), groupMenu()]) {
+    assert.ok(list.length > 0 && list.length <= 100);
+    for (const c of list) {
+      assert.match(c.command, /^[a-z0-9_]{1,32}$/, c.command);
+      assert.ok(c.description.length >= 3 && c.description.length <= 256, `${c.command} description`);
+    }
   }
-  assert.ok(commands.some((c) => c.command === "leaderboard"));
-  assert.ok(commands.some((c) => c.command === "support"));
 });
 
-test("applying the profile sets the description, the short description and the command menu", async () => {
+test("the ☰ menu lists the private commands, and groups get the group-relevant ones", () => {
+  const priv = privateMenu().map((c) => c.command);
+  const grp = groupMenu().map((c) => c.command);
+  assert.ok(priv.includes("connect") && priv.includes("me") && priv.includes("start"));
+  assert.ok(!grp.includes("connect") && !grp.includes("me"));
+  assert.ok(grp.includes("leaderboard") && grp.includes("roster") && grp.includes("setdaily"));
+});
+
+test("applying the profile sets the texts, the scoped command lists, and the ☰ button", async () => {
   const calls = [];
-  const api = { setMyDescription: async (p) => calls.push(["description", p]), setMyShortDescription: async (p) => calls.push(["short", p]), setMyCommands: async (p) => calls.push(["commands", p]) };
+  const api = {
+    setMyDescription: async (p) => calls.push(["description", p]),
+    setMyShortDescription: async (p) => calls.push(["short", p]),
+    setMyCommands: async (list, opts) => calls.push(["commands", opts?.scope?.type ?? "default", list.length]),
+    setChatMenuButton: async (p) => calls.push(["menu", p.menu_button.type]),
+  };
   const result = await applyProfile(api);
-  assert.deepEqual(calls.map((c) => c[0]), ["description", "short", "commands"]);
-  assert.equal(result.commands, botCommands().length);
+  assert.deepEqual(calls.filter((c) => c[0] === "commands").map((c) => c[1]), ["default", "all_private_chats", "all_group_chats"]);
+  assert.deepEqual(calls.at(-1), ["menu", "commands"]);
+  assert.equal(result.privateCommands, privateMenu().length);
 });
 
 test("the profile reads only BOT_TOKEN, and refuses a missing or malformed token", () => {
@@ -36,4 +50,3 @@ test("the profile reads only BOT_TOKEN, and refuses a missing or malformed token
   assert.throws(() => readToken({}), /BOT_TOKEN is missing/);
   assert.throws(() => readToken({ BOT_TOKEN: "not-a-token" }), /BOT_TOKEN is missing/);
 });
-

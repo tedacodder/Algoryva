@@ -45,7 +45,7 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
   }
 
   async function replyHtml(ctx, html, { menu = false, inline } = {}) {
-    const menuMarkup = menu ? (isPrivate(ctx) ? keyboard() : groupMenu()) : undefined;
+    const menuMarkup = menu ? keyboard() : undefined; // the same button keyboard in private chats and groups
     return ctx.reply(html, {
       parse_mode: "HTML",
       link_preview_options: { is_disabled: true },
@@ -143,10 +143,10 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
 
   bot.command(["help", "menu"], (ctx) => {
     const topic = (ctx.match ?? "").trim().replace(/^\//, "").toLowerCase();
-    if (!topic) return replyHtml(ctx, F.helpIndexHtml(), { menu: true, inline: isPrivate(ctx) ? guideButton() : groupMenu() });
+    if (!topic) return replyHtml(ctx, F.helpIndexHtml(), { menu: true, inline: isPrivate(ctx) ? guideButton() : undefined });
     const cmd = commandByName(topic);
     if (!cmd) return replyHtml(ctx, `❓ There is no command called <b>/${F.esc(topic)}</b>. Send /help for the full list.`, { menu: true });
-    return replyHtml(ctx, F.commandCardHtml(cmd), { menu: true, inline: isPrivate(ctx) ? guideButton() : groupMenu() });
+    return replyHtml(ctx, F.commandCardHtml(cmd), { menu: true, inline: isPrivate(ctx) ? guideButton() : undefined });
   });
   bot.command("random", (ctx) => act(ctx, randomAction(ctx, ctx.match), { menu: true }));
   bot.command("daily", (ctx) => act(ctx, async () => dailyOut(await site.daily(chatId(ctx))), { menu: true }));
@@ -316,7 +316,6 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
 
   // ---- keyboard buttons (private chats only: Telegram does not deliver taps from groups to bots) ----------------
   bot.hears(Object.keys(T.KEYBOARD_BUTTONS), (ctx) => {
-    if (!isPrivate(ctx)) return undefined;
     const handlers = {
       random: () => act(ctx, randomAction(ctx, ""), { menu: true }),
       daily: () => act(ctx, async () => dailyOut(await site.daily(chatId(ctx))), { menu: true }),
