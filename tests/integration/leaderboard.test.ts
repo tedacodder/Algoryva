@@ -128,4 +128,13 @@ describe("group leaderboard", () => {
     const unsigned = await leaderboardRoute(new Request("https://algoryva.example.test/api/internal/bot/v1/community/leaderboard", { method: "POST", body }));
     expect(unsigned.status).toBe(401);
   });
+
+  it("a Refresh also checks the students queued for checking", async () => {
+    const queued = await rosterAction(SECRET, GROUP, "add", ["queued1x"], { validate: true, budgetMs: 0 });
+    expect(queued.checking).toBe(1);
+    await groupLeaderboard(SECRET, GROUP, "week", NOW, { budgetMs: 30_000 });
+    const after = await rosterAction(SECRET, GROUP, "list", []);
+    expect(after.count).toBe(1);
+    expect(after.checking).toBe(0);
+  });
 });

@@ -47,7 +47,7 @@ export function createSite({ base, secret, fetchImpl = fetch }) {
     random: (chatId, filter = {}) => post("community/random", { chatId, ...filter }),
     connect: (chatId, chatType, handle) => post("community/connect", { chatId, chatType, handle }),
     disconnect: (chatId, handle) => post("community/disconnect", handle ? { chatId, handle } : { chatId }),
-    me: (chatId) => post("community/me", { chatId }),
+    me: (chatId) => post("community/me", { chatId }, { timeoutMs: 60_000 }),
     group: (chatId, enable) => post("community/group", { chatId, enable }),
     settings: (chatId, patch) => post("community/settings", { chatId, ...patch }),
     stop: (chatId) => post("community/stop", { chatId }),

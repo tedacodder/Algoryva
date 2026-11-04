@@ -114,7 +114,11 @@ export function reportHtml(data) {
 
 export function meHtml(handles) {
   if (!handles?.length) return "👤 No handles connected yet. Use <code>/connect &lt;handle&gt;</code>.";
-  const rows = handles.map((h) => `• <code>${esc(h.handle)}</code> · rating <b>${h.rating ?? "unrated"}</b> · ${h.solved} solved`);
+  const rows = handles.map((h) =>
+    h.pending
+      ? `• <code>${esc(h.handle)}</code> · <i>checking, try again shortly</i>`
+      : `• <code>${esc(h.handle)}</code> · rating <b>${h.rating ?? "unrated"}</b> · ${h.solved} solved`,
+  );
   return ["👤 <b>Connected handles</b>", `<blockquote>${rows.join("\n")}</blockquote>`].join("\n");
 }
 

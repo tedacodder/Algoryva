@@ -10,6 +10,7 @@ import { connectHandle, connectedHandles, disconnectHandle, randomProblem } from
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 60; // Codeforces lookups for every handle, within one shared budget
 
 const bodySchema = z.object({ chatId: chatIdSchema }).strict();
 
