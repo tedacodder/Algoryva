@@ -6,10 +6,22 @@ import * as T from "./texts.js";
 import * as F from "./formatting.js";
 import { commandByName } from "./commands.js";
 
+// Buttons for personal settings. Groups do not show them, and ignore a typed copy of them.
+const PRIVATE_ONLY_BUTTONS = ["connect", "me", "settings", "groups"];
+
 export const ADMIN = ["creator", "administrator"];
 const DAILY_OPENERS = ["🧠 Brain teaser of the day", "🔥 Fresh from Codeforces", "⚡ Quick challenge for you", "🎯 Today's target", "🧩 Puzzle time"];
 const RANDOM_OPENERS = ["🎲 Random pick, no excuses", "🎰 Spin! Here is your problem", "🃏 Your card is…"];
 const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
+
+// What a group shows: only the buttons a group uses.
+function groupKeyboard() {
+  return new Keyboard()
+    .text("🎲 Random").text("📅 Daily").text("🏆 Contests").row()
+    .text("⏰ Next Contest").text("📊 Leaderboard").text("❓ Help")
+    .resized()
+    .persistent();
+}
 
 function keyboard() {
   return new Keyboard()
@@ -45,7 +57,7 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
   }
 
   async function replyHtml(ctx, html, { menu = false, inline } = {}) {
-    const menuMarkup = menu ? keyboard() : undefined; // the same button keyboard in private chats and groups
+    const menuMarkup = menu ? (isPrivate(ctx) ? keyboard() : groupKeyboard()) : undefined;
     return ctx.reply(html, {
       parse_mode: "HTML",
       link_preview_options: { is_disabled: true },
@@ -326,8 +338,11 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
       settings: () => reply(ctx, T.SETTINGS_GUIDE, { menu: true }),
       groups: () => reply(ctx, T.GROUP_GUIDE, { menu: true }),
       help: () => replyHtml(ctx, F.helpIndexHtml(), { menu: true }),
+      leaderboard: () => groupActions.leaderboard(ctx),
     };
-    return handlers[T.KEYBOARD_BUTTONS[ctx.message.text]]();
+    const action = T.KEYBOARD_BUTTONS[ctx.message.text];
+    if (!isPrivate(ctx) && PRIVATE_ONLY_BUTTONS.includes(action)) return undefined;
+    return handlers[action]();
   });
 
   return bot;

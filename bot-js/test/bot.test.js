@@ -313,14 +313,28 @@ function groupCallbackUpdate(data, chatId = -1009000000777) {
   };
 }
 
-test("a group's replies carry the same button keyboard as the private chat", async () => {
+test("a group's replies carry only the group buttons, without the personal settings", async () => {
   const h = makeHarness();
   await h.bot.handleUpdate(h.update({ text: "/contests", chatType: "group", chatId: -1009000000777 }));
   const sent = h.telegramCalls.filter((c) => c.method === "sendMessage").at(-1);
   const labels = sent.payload.reply_markup.keyboard.flat().map((b) => b.text);
-  assert.ok(labels.includes("🎲 Random") && labels.includes("🏆 Contests") && labels.includes("⏰ Next Contest"));
+  assert.deepEqual(labels.sort(), ["🎲 Random", "📅 Daily", "📊 Leaderboard", "❓ Help", "🏆 Contests", "⏰ Next Contest"].sort());
+  assert.ok(!labels.some((l) => /Connect|My Handles|Settings|Groups/.test(l)));
 });
 
+test("a group ignores a typed copy of a personal button", async () => {
+  const h = makeHarness();
+  const before = h.sent.length;
+  await h.bot.handleUpdate(h.update({ text: "🔗 Connect", chatType: "group", chatId: -1009000000777 }));
+  assert.equal(h.sent.length, before);
+});
+
+test("the group Leaderboard button starts the checking message and fills in the table", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(h.update({ text: "📊 Leaderboard", chatType: "group", chatId: -1009000000777 }));
+  assert.match(h.sent[0].text, /Checking Codeforces/);
+  assert.match(h.telegramCalls.find((c) => c.method === "editMessageText").payload.text, /Group leaderboard/);
+});
 test("a button tapped in a group works the same way it does in a private chat", async () => {
   const now = Math.floor(Date.now() / 1000);
   const contests = [{ id: 3, name: "Tap Round", startTimeSeconds: now + 3600, durationSeconds: 7200, url: "https://codeforces.com/contests/3" }];
