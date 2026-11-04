@@ -9,6 +9,7 @@ export const KEYBOARD_BUTTONS = {
   "🎲 Random": "random",
   "📅 Daily": "daily",
   "🏆 Contests": "contests",
+  "📊 Leaderboard": "leaderboard",
   "⏰ Next Contest": "next",
   "🔗 Connect": "connect",
   "👤 My Handles": "me",
