@@ -5,4 +5,4 @@ import { applyProfile, readToken } from "./profile.js";
 
 const bot = new Bot(readToken(process.env));
 const result = await applyProfile(bot.api);
-console.log(`profile updated: ${result.commands} commands, description and short description set.`);
+console.log(`profile updated: ${result.privateCommands} private commands, ${result.groupCommands} group commands, description and menu button set.`);

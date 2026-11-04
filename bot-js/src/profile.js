@@ -1,20 +1,31 @@
 // The bot's public profile: the description shown before a user starts the bot, the short line shown in search and shares,
 // and the "/" command menu. Set once with: npm run profile (it changes nothing on the website).
-import { COMMANDS, SUPPORT_EMAIL } from "./commands.js";
+import { COMMANDS, MENU_TEXT, SUPPORT_EMAIL } from "./commands.js";
 
 export const DESCRIPTION = "🧠 Your Codeforces coach, in Telegram.\n\n🎲 Random problems by rating and tags\n📅 A new daily problem, every day\n🏆 Contest alerts: when posted, and 2 hours before\n✅ Problems you've solved are skipped once you connect your handle\n👥 For groups and classes: class list, class report and live leaderboard\n\nGet started: send /start\nNeed help: /help\nSupport: Algoryva@gmail.com";
 
 export const SHORT_DESCRIPTION = "🧠 Daily Codeforces problems, contest alerts & class leaderboards. Send /start";
 
-export function botCommands() {
-  return COMMANDS.map((c) => ({ command: c.name, description: c.summary.slice(0, 256) }));
+// What a private chat shows under the ☰ menu button, and what a group shows when someone types "/".
+const PRIVATE_MENU = ["start", "random", "daily", "contests", "next", "connect", "me", "disconnect", "notify", "stop", "support", "help"];
+const GROUP_MENU = ["random", "daily", "contests", "next", "leaderboard", "report", "roster", "setdaily", "enable", "disable", "help", "support"];
+
+function menuFor(names) {
+  return names.filter((n) => COMMANDS.some((c) => c.name === n) && MENU_TEXT[n]).map((n) => ({ command: n, description: MENU_TEXT[n] }));
 }
+
+export const privateMenu = () => menuFor(PRIVATE_MENU);
+export const groupMenu = () => menuFor(GROUP_MENU);
+export const botCommands = privateMenu;
 
 export async function applyProfile(api) {
   await api.setMyDescription({ description: DESCRIPTION });
   await api.setMyShortDescription({ short_description: SHORT_DESCRIPTION });
-  await api.setMyCommands(botCommands());
-  return { commands: botCommands().length };
+  await api.setMyCommands(privateMenu()); // default: used wherever no scope is set
+  await api.setMyCommands(privateMenu(), { scope: { type: "all_private_chats" } });
+  await api.setMyCommands(groupMenu(), { scope: { type: "all_group_chats" } });
+  await api.setChatMenuButton({ menu_button: { type: "commands" } }); // the ☰ button shows the command list
+  return { privateCommands: privateMenu().length, groupCommands: groupMenu().length };
 }
 
 /** The token, read from BOT_TOKEN only. The profile needs nothing else, so the other secrets are not required. */

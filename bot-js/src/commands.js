@@ -65,3 +65,26 @@ export const COMMANDS = [
 ];
 
 export const commandByName = (name) => COMMANDS.find((c) => c.name === name);
+
+/** Short labels for Telegram's command menu (the ☰ button in chats, and the "/" list in groups). */
+export const MENU_TEXT = {
+  start: "Open the menu and today's problem",
+  random: "Random problem you have not solved",
+  daily: "Today's challenge",
+  contests: "Upcoming contests, soonest first",
+  next: "Next contest, with time left",
+  connect: "Link your Codeforces handle",
+  me: "Your connected handles",
+  disconnect: "Unlink a handle",
+  notify: "Turn daily or contest alerts on or off",
+  stop: "Stop messages in this chat",
+  support: "Contact the team",
+  help: "All commands and details",
+  enable: "Turn this group on (admins)",
+  disable: "Turn this group off (admins)",
+  roster: "Class list (admins can change it)",
+  setdaily: "Set the group's problem (admins)",
+  report: "Class report",
+  leaderboard: "Group leaderboard: week, month or all time",
+};
+
