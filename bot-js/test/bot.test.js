@@ -301,3 +301,48 @@ test("/support replies with the support email", async () => {
   assert.match(h.sent[0].text, /Algoryva@gmail\.com/);
 });
 
+function groupCallbackUpdate(data, chatId = -1009000000777) {
+  return {
+    update_id: 991,
+    callback_query: {
+      id: "gcb1", from: { id: 42, is_bot: false, first_name: "Amy" }, chat_instance: "1", data,
+      message: { message_id: 88, date: 0, chat: { id: chatId, type: "supergroup", title: "CP" }, from: { id: 1, is_bot: true, first_name: "CF" }, text: "x" },
+    },
+  };
+}
+
+test("a group's replies carry the group buttons, so the group can use them", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(h.update({ text: "/contests", chatType: "group", chatId: -1009000000777 }));
+  const sent = h.telegramCalls.filter((c) => c.method === "sendMessage").at(-1);
+  const rows = sent.payload.reply_markup.inline_keyboard.flat().map((b) => b.callback_data ?? b.url);
+  assert.ok(rows.includes("gm:random") && rows.includes("gm:contests") && rows.includes("gm:next") && rows.includes("gm:leaderboard"));
+});
+
+test("the group Contests button answers in the group with the contest list", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const contests = [{ id: 1, name: "Group Round", startTimeSeconds: now + 3600, durationSeconds: 7200, url: "https://codeforces.com/contests/1" }];
+  const h = makeHarness({ siteOverrides: { contests: async () => ({ text: "x", contests }) } });
+  await h.bot.handleUpdate(groupCallbackUpdate("gm:contests"));
+  assert.ok(h.telegramCalls.some((c) => c.method === "answerCallbackQuery"));
+  assert.match(h.sent.at(-1).text, /Group Round/);
+});
+
+test("the group Random and Next Contest buttons work the same way", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const contests = [{ id: 2, name: "Next One", startTimeSeconds: now + 900, durationSeconds: 7200, url: "https://codeforces.com/contests/2" }];
+  const h = makeHarness({ siteOverrides: { contests: async () => ({ text: "x", contests }) } });
+  await h.bot.handleUpdate(groupCallbackUpdate("gm:next"));
+  assert.match(h.sent.at(-1).text, /Next Codeforces contest/);
+  await h.bot.handleUpdate(groupCallbackUpdate("gm:random"));
+  assert.ok(h.site.calls.some((c) => c[0] === "random"));
+});
+
+test("the group Leaderboard button starts the checking message and fills in the table", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(groupCallbackUpdate("gm:leaderboard"));
+  assert.match(h.sent[0].text, /Checking Codeforces/);
+  const edit = h.telegramCalls.find((c) => c.method === "editMessageText");
+  assert.match(edit.payload.text, /Group leaderboard/);
+});
+
