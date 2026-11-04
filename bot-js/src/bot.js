@@ -35,11 +35,21 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
   const inGroup = (ctx) => ctx.chat?.type === "group" || ctx.chat?.type === "supergroup";
   const chatId = (ctx) => String(ctx.chat.id);
 
+  // The buttons a group gets under its replies. Inline buttons work in groups without admin rights.
+  function groupMenu() {
+    const kb = new InlineKeyboard()
+      .text("🎲 Random", "gm:random").text("📅 Daily", "gm:daily").text("🏆 Contests", "gm:contests").row()
+      .text("⏰ Next Contest", "gm:next").text("📊 Leaderboard", "gm:leaderboard").text("❓ Help", "gm:help");
+    if (docsUrl) kb.row().url("📖 Full guide", docsUrl);
+    return kb;
+  }
+
   async function replyHtml(ctx, html, { menu = false, inline } = {}) {
+    const menuMarkup = menu ? (isPrivate(ctx) ? keyboard() : groupMenu()) : undefined;
     return ctx.reply(html, {
       parse_mode: "HTML",
       link_preview_options: { is_disabled: true },
-      reply_markup: inline ?? (menu && isPrivate(ctx) ? keyboard() : undefined),
+      reply_markup: inline ?? menuMarkup,
     });
   }
 
@@ -133,10 +143,10 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
 
   bot.command(["help", "menu"], (ctx) => {
     const topic = (ctx.match ?? "").trim().replace(/^\//, "").toLowerCase();
-    if (!topic) return replyHtml(ctx, F.helpIndexHtml(), { menu: true, inline: guideButton() });
+    if (!topic) return replyHtml(ctx, F.helpIndexHtml(), { menu: true, inline: isPrivate(ctx) ? guideButton() : groupMenu() });
     const cmd = commandByName(topic);
     if (!cmd) return replyHtml(ctx, `❓ There is no command called <b>/${F.esc(topic)}</b>. Send /help for the full list.`, { menu: true });
-    return replyHtml(ctx, F.commandCardHtml(cmd), { menu: true, inline: guideButton() });
+    return replyHtml(ctx, F.commandCardHtml(cmd), { menu: true, inline: isPrivate(ctx) ? guideButton() : groupMenu() });
   });
   bot.command("random", (ctx) => act(ctx, randomAction(ctx, ctx.match), { menu: true }));
   bot.command("daily", (ctx) => act(ctx, async () => dailyOut(await site.daily(chatId(ctx))), { menu: true }));
@@ -284,6 +294,24 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
       await editMessage(message.chat.id, message.message_id, "<blockquote>Could not refresh just now. Press 🔄 Refresh to try again.</blockquote>", leaderboardKeyboard(period)).catch(() => undefined);
     }
     return undefined;
+  });
+
+  // ---- group buttons: the same actions as the commands, answered in the group ------------------------------------
+  const groupActions = {
+    random: (ctx) => act(ctx, randomAction(ctx, ""), { menu: true }),
+    daily: (ctx) => act(ctx, async () => dailyOut(await site.daily(chatId(ctx))), { menu: true }),
+    contests: (ctx) => act(ctx, contestsAction(ctx), { menu: true }),
+    next: (ctx) => act(ctx, nextAction(ctx), { menu: true }),
+    help: (ctx) => replyHtml(ctx, F.helpIndexHtml(), { menu: true }),
+    leaderboard: async (ctx) => {
+      const placeholder = await replyHtml(ctx, F.leaderboardCheckingHtml("week"), { menu: true });
+      return runLeaderboard(ctx.chat.id, placeholder.message_id, "week");
+    },
+  };
+
+  bot.callbackQuery(/^gm:(random|daily|contests|next|help|leaderboard)$/, async (ctx) => {
+    await ctx.answerCallbackQuery().catch(() => undefined);
+    return groupActions[ctx.callbackQuery.data.slice(3)](ctx);
   });
 
   // ---- keyboard buttons (private chats only: Telegram does not deliver taps from groups to bots) ----------------

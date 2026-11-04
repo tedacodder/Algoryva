@@ -2,20 +2,9 @@
 // and the "/" command menu. Set once with: npm run profile (it changes nothing on the website).
 import { COMMANDS, SUPPORT_EMAIL } from "./commands.js";
 
-export const DESCRIPTION = [
-  "🧠 Your Codeforces coach, in Telegram.",
-  "",
-  "🎲 Random problems: pick a rating band and tags",
-  "📅 A daily problem, every day",
-  "🏆 Contest alerts: when a contest is posted, and two hours before it starts",
-  "✅ Connect your handle and the problems you solved are skipped",
-  "👥 Classes: a roster, a class report and a live leaderboard",
-  "",
-  "Start with /start, or send /help for every command.",
-  `Support: ${SUPPORT_EMAIL}`,
-].join("\n");
+export const DESCRIPTION = "🧠 Your Codeforces coach, in Telegram.\n\n🎲 Random problems by rating and tags\n📅 A new daily problem, every day\n🏆 Contest alerts: when posted, and 2 hours before\n✅ Problems you've solved are skipped once you connect your handle\n👥 For groups and classes: class list, class report and live leaderboard\n\nGet started: send /start\nNeed help: /help\nSupport: Algoryva@gmail.com";
 
-export const SHORT_DESCRIPTION = "Codeforces daily problems, contest alerts and class leaderboards.";
+export const SHORT_DESCRIPTION = "🧠 Daily Codeforces problems, contest alerts & class leaderboards. Send /start";
 
 export function botCommands() {
   return COMMANDS.map((c) => ({ command: c.name, description: c.summary.slice(0, 256) }));
