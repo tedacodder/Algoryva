@@ -4,6 +4,9 @@ import { ApiError } from "@/lib/api/errors";
 import { hashTelegramId } from "@/lib/telegram/bot-auth";
 import { CodeforcesError, userAccepted, userInfo, type Accepted } from "@/lib/codeforces/client";
 
+/** Codeforces calls one request may spend on a refresh. The rest of the members are listed as pending and filled by the next press. */
+export const LEADERBOARD_BUDGET_MS = 35_000;
+
 /**
  * The group leaderboard. Each member is ranked on what they did in the period: problems solved, active days, and consistency.
  * Score = solved + 2 × active days. Ties break on consistency, then rating, then handle, so the order is always the same.
@@ -69,9 +72,17 @@ async function cachedAccepted(handle: string, now: Date): Promise<Accepted[] | n
   return row.payload as unknown as Accepted[];
 }
 
-export async function groupLeaderboard(secret: string, chatId: string, period: Period, now: Date) {
+async function cachedRating(handle: string, now: Date): Promise<number | null | undefined> {
+  const row = await db.cfCache.findUnique({ where: { key: `user:${handle.toLowerCase()}` } });
+  if (!row || now.getTime() - row.fetchedAt.getTime() >= 10 * 60_000) return undefined;
+  return (row.payload as { rating?: number | null }).rating ?? null;
+}
+
+export async function groupLeaderboard(secret: string, chatId: string, period: Period, now: Date, options: { budgetMs?: number } = {}) {
+  const deadline = Date.now() + (options.budgetMs ?? LEADERBOARD_BUDGET_MS);
   const group = await groupRecipient(secret, chatId);
-  const rosterRows = await db.groupRoster.findMany({ where: { recipientId: group.id }, orderBy: { addedAt: "asc" }, select: { handle: true } });
+  const rosterRows = await db.groupRoster.findMany({ where: { recipientId: group.id, status: "valid" }, orderBy: { addedAt: "asc" }, select: { handle: true } });
+  const checking = await db.groupRoster.count({ where: { recipientId: group.id, status: "pending" } });
   const usesConnectedFallback = rosterRows.length === 0;
   const roster = usesConnectedFallback
     ? (await db.cfHandle.findMany({ where: { recipientId: group.id }, select: { handle: true } })).map((r) => r.handle)
@@ -85,11 +96,9 @@ export async function groupLeaderboard(secret: string, chatId: string, period: P
 
   const scored: Scored[] = [];
   const pending: string[] = [];
-  let budget = FETCH_BUDGET;
   for (const handle of registered) {
     let accepted = await cachedAccepted(handle, now);
-    if (!accepted && budget > 0) {
-      budget -= 1;
+    if (!accepted && Date.now() < deadline) {
       try {
         accepted = await userAccepted(handle, now);
       } catch (e) {
@@ -101,13 +110,15 @@ export async function groupLeaderboard(secret: string, chatId: string, period: P
       pending.push(handle);
       continue;
     }
-    let rating: number | null = null;
-    try {
-      rating = (await userInfo(handle, now)).rating;
-    } catch (e) {
-      if (!(e instanceof CodeforcesError)) throw e;
+    let rating = await cachedRating(handle, now);
+    if (rating === undefined && Date.now() < deadline) {
+      try {
+        rating = (await userInfo(handle, now)).rating;
+      } catch (e) {
+        if (!(e instanceof CodeforcesError)) throw e;
+      }
     }
-    scored.push(scoreMember(handle, rating, accepted, period, now));
+    scored.push(scoreMember(handle, rating ?? null, accepted, period, now));
   }
   return {
     period,
@@ -116,6 +127,7 @@ export async function groupLeaderboard(secret: string, chatId: string, period: P
     registered: registered.length,
     notRegistered,
     pending,
+    checking,
     usesConnectedFallback,
     checkedAt: now.toISOString(),
   };

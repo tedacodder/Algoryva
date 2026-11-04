@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { ApiError } from "@/lib/api/errors";
 import { hashTelegramId } from "@/lib/telegram/bot-auth";
-import { CodeforcesError, problemset, userInfo, userSolved, USER_TTL_MS } from "@/lib/codeforces/client";
+import { CodeforcesError, problemset, userAccepted, userInfo, userSolved, USER_TTL_MS } from "@/lib/codeforces/client";
 import { pickDailyProblem, problemRef, type CfProblem } from "@/lib/codeforces/pick";
 import { utcDay } from "@/lib/bot/daily";
 
@@ -55,52 +55,86 @@ function unique(handles: string[]): string[] {
   return out;
 }
 
-export type RosterResult = { count: number; handles: string[]; added: string[]; invalid: string[]; unchecked: string[] };
+export type RosterResult = { count: number; handles: string[]; added: string[]; invalid: string[]; unchecked: string[]; checking: number };
+
+/** How long one request may spend on Codeforces checks. Codeforces allows one request every two seconds, so the rest waits for the next run. */
+export const ROSTER_CHECK_MS = 30_000;
+
+type Row = { recipientId: string; handle: string };
 
 /**
- * Checks each handle on Codeforces. A real account is added to the class list and registered in this group, so the student
- * counts as registered without running /connect. A handle Codeforces does not know is reported, not stored. A handle beyond
- * this request's budget is reported as not checked yet, so the admin can send it again.
+ * Checks pending roster entries against Codeforces, within a time budget. A real account becomes valid and is registered in its
+ * group. A handle Codeforces does not know is removed and reported. Anything left when the budget runs out stays pending.
  */
-async function validateAndRegister(groupId: string, incoming: string[], now: Date) {
-  const added: string[] = [];
-  const invalid: string[] = [];
-  const unchecked: string[] = [];
-  let budget = FETCH_BUDGET;
-  for (const handle of incoming) {
-    const cached = await db.cfCache.findUnique({ where: { key: `user:${handle.toLowerCase()}` } });
-    const fresh = cached !== null && now.getTime() - cached.fetchedAt.getTime() < USER_TTL_MS;
-    if (!fresh) {
-      if (budget <= 0) {
-        unchecked.push(handle);
-        continue;
-      }
-      budget -= 1;
+export async function checkPending(groupId: string | null, now: Date, budgetMs: number) {
+  const deadline = Date.now() + budgetMs;
+  const pending = await db.groupRoster.findMany({
+    where: { status: "pending", ...(groupId ? { recipientId: groupId } : {}) },
+    orderBy: { addedAt: "asc" },
+    take: 300,
+    select: { id: true, recipientId: true, handle: true },
+  });
+  const valid: Row[] = [];
+  const invalid: Row[] = [];
+  const unchecked: Row[] = [];
+  for (const row of pending) {
+    if (Date.now() >= deadline) {
+      unchecked.push(row);
+      continue;
     }
     let canonical: string;
     try {
-      canonical = (await userInfo(handle, now)).handle;
+      canonical = (await userInfo(row.handle, now)).handle;
     } catch (e) {
-      if (e instanceof CodeforcesError && e.kind === "not_found") invalid.push(handle);
-      else unchecked.push(handle);
+      if (e instanceof CodeforcesError && e.kind === "not_found") {
+        await db.groupRoster.delete({ where: { id: row.id } });
+        invalid.push(row);
+      } else {
+        unchecked.push(row);
+      }
       continue;
     }
     try {
-      await db.groupRoster.create({ data: { recipientId: groupId, handle: canonical } });
+      await db.groupRoster.update({ where: { id: row.id }, data: { status: "valid", handle: canonical } });
     } catch (e) {
       if (!isUnique(e)) throw e;
+      await db.groupRoster.delete({ where: { id: row.id } }); // already on this list in another spelling
     }
-    const known = await db.cfHandle.findFirst({ where: { recipientId: groupId, handle: { equals: canonical, mode: "insensitive" } }, select: { id: true } });
+    const known = await db.cfHandle.findFirst({ where: { recipientId: row.recipientId, handle: { equals: canonical, mode: "insensitive" } }, select: { id: true } });
     if (!known) {
       try {
-        await db.cfHandle.create({ data: { recipientId: groupId, handle: canonical } });
+        await db.cfHandle.create({ data: { recipientId: row.recipientId, handle: canonical } });
       } catch (e) {
         if (!isUnique(e)) throw e;
       }
     }
-    added.push(canonical);
+    valid.push({ recipientId: row.recipientId, handle: canonical });
   }
-  return { added, invalid, unchecked };
+  return { valid, invalid, unchecked };
+}
+
+/**
+ * Background work, run every minute by the scheduler: checks pending roster entries, then loads Codeforces data for the valid
+ * members whose data is stale, so the leaderboard answers in one press.
+ */
+export async function workPending(now: Date, budgetMs: number) {
+  const deadline = Date.now() + budgetMs;
+  const checked = await checkPending(null, now, budgetMs / 2);
+  let warmed = 0;
+  const members = await db.groupRoster.findMany({ where: { status: "valid" }, orderBy: { addedAt: "asc" }, take: 300, select: { handle: true } });
+  for (const member of members) {
+    if (Date.now() >= deadline) break;
+    const cached = await db.cfCache.findUnique({ where: { key: `accepted:${member.handle.toLowerCase()}` } });
+    if (cached && now.getTime() - cached.fetchedAt.getTime() < USER_TTL_MS) continue;
+    try {
+      await userAccepted(member.handle, now);
+      await userInfo(member.handle, now);
+      warmed += 1;
+    } catch (e) {
+      if (!(e instanceof CodeforcesError)) throw e;
+    }
+  }
+  return { checked: { valid: checked.valid.length, invalid: checked.invalid.length, pending: checked.unchecked.length }, warmed };
 }
 
 export async function rosterAction(
@@ -108,9 +142,9 @@ export async function rosterAction(
   chatId: string,
   action: "set" | "add" | "remove" | "list" | "clear",
   handles: string[],
-  options: { validate?: boolean } = {},
+  options: { validate?: boolean; budgetMs?: number } = {},
 ): Promise<RosterResult> {
-  const { validate = false } = options;
+  const { validate = false, budgetMs = ROSTER_CHECK_MS } = options;
   const group = await groupChat(secret, chatId);
   const bad = handles.find((h) => !HANDLE_RE.test(h));
   if (bad !== undefined) throw new ApiError(400, "invalid_handle", "Handles are 3 to 24 letters, numbers, dots, dashes or underscores.");
@@ -122,24 +156,29 @@ export async function rosterAction(
   let invalid: string[] = [];
   let unchecked: string[] = [];
   if (action === "set" || action === "add") {
-    const current = await db.groupRoster.count({ where: { recipientId: group.id } });
+    const current = await db.groupRoster.count({ where: { recipientId: group.id, status: "valid" } });
     const incoming = unique(handles);
     if (current + incoming.length > ROSTER_MAX) throw new ApiError(400, "roster_too_large", `A roster holds up to ${ROSTER_MAX} handles.`);
-    if (validate) {
-      ({ added, invalid, unchecked } = await validateAndRegister(group.id, incoming, new Date()));
-    } else {
-      for (const handle of incoming) {
-        try {
-          await db.groupRoster.create({ data: { recipientId: group.id, handle } });
-        } catch (e) {
-          if (!isUnique(e)) throw e;
-        }
+    for (const handle of incoming) {
+      try {
+        await db.groupRoster.create({ data: { recipientId: group.id, handle, status: validate ? "pending" : "valid" } });
+      } catch (e) {
+        if (!isUnique(e)) throw e; // already on the list: its status stays as it is
       }
+    }
+    if (validate) {
+      const outcome = await checkPending(group.id, new Date(), budgetMs);
+      const mine = new Set(incoming.map((h) => h.toLowerCase()));
+      added = outcome.valid.map((r) => r.handle).filter((h) => mine.has(h.toLowerCase()));
+      invalid = outcome.invalid.map((r) => r.handle).filter((h) => mine.has(h.toLowerCase()));
+      unchecked = outcome.unchecked.map((r) => r.handle).filter((h) => mine.has(h.toLowerCase()));
+    } else {
       added = incoming;
     }
   }
-  const rows = await db.groupRoster.findMany({ where: { recipientId: group.id }, orderBy: { addedAt: "asc" }, select: { handle: true } });
-  return { count: rows.length, handles: rows.map((r) => r.handle), added, invalid, unchecked };
+  const valid = await db.groupRoster.findMany({ where: { recipientId: group.id, status: "valid" }, orderBy: { addedAt: "asc" }, select: { handle: true } });
+  const checking = await db.groupRoster.count({ where: { recipientId: group.id, status: "pending" } });
+  return { count: valid.length, handles: valid.map((r) => r.handle), added, invalid, unchecked, checking };
 }
 
 export async function groupProblemAction(secret: string, chatId: string, problem: string | null, now: Date): Promise<{ ref: string | null; name: string | null }> {
@@ -184,7 +223,7 @@ async function currentProblem(group: { id: string; chatHash: string }, problems:
 
 export async function classroomReport(secret: string, chatId: string, now: Date): Promise<ReportData> {
   const group = await groupChat(secret, chatId);
-  const rosterRows = await db.groupRoster.findMany({ where: { recipientId: group.id }, orderBy: { addedAt: "asc" }, select: { handle: true } });
+  const rosterRows = await db.groupRoster.findMany({ where: { recipientId: group.id, status: "valid" }, orderBy: { addedAt: "asc" }, select: { handle: true } });
   const fallback = rosterRows.length === 0;
   let roster: string[];
   if (fallback) {

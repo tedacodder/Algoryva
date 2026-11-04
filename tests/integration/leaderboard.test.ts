@@ -83,14 +83,14 @@ describe("group leaderboard", () => {
     expect(board.rows).toEqual([]);
   });
 
-  it("checks at most the budget of students per request, and lists the rest as pending", async () => {
-    const names = Array.from({ length: FETCH_BUDGET + 2 }, (_, i) => `member${i}x`);
+  it("with no time left for Codeforces, nothing is fetched and every unchecked member is listed as pending", async () => {
+    const names = ["ann1x", "ben2x", "cy3x"];
     await rosterAction(SECRET, GROUP, "set", names);
     for (const name of names) await registerStudent(name);
     const statusCalls = () => (fetch as unknown as { mock: { calls: [string | URL][] } }).mock.calls.filter(([u]) => String(u).includes("user.status")).length;
     const before = statusCalls();
-    const board = await groupLeaderboard(SECRET, GROUP, "week", NOW);
-    expect(statusCalls() - before).toBe(FETCH_BUDGET);
+    const board = await groupLeaderboard(SECRET, GROUP, "week", NOW, { budgetMs: 0 });
+    expect(statusCalls() - before).toBe(0);
     expect(board.pending.length).toBe(names.length);
   });
 

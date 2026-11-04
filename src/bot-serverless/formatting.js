@@ -210,6 +210,7 @@ export function leaderboardHtml(data) {
   if (data.notRegistered.length) {
     lines.push(`📝 <b>Not registered (${data.notRegistered.length})</b>: ${data.notRegistered.slice(0, 30).map((h) => `<code>${esc(h)}</code>`).join(", ")}`);
   }
+  if (data.checking > 0) lines.push(`⏳ <b>${data.checking} student${data.checking === 1 ? " is" : "s are"} still being verified</b>. They join the table automatically.`);
   lines.push("", "<i>Ranked by points: problems solved, plus consistency (days with a solve ÷ days in the period). Ties go to rating.</i>");
   lines.push(`<i>Checked ${esc(new Date(data.checkedAt).toISOString().slice(11, 16))} UTC · ${data.registered}/${data.rosterCount} registered</i>`);
   return lines.join("\n");
@@ -227,7 +228,8 @@ export function rosterResultHtml(action, data) {
   if (action === "remove" || action === "clear") lines.push("🗑 <b>Updated.</b>");
   if (data.added?.length) lines.push(`✅ <b>Registered (${data.added.length})</b>`, `<blockquote>${names(data.added)}</blockquote>`);
   if (data.invalid?.length) lines.push(`❌ <b>Not a Codeforces account (${data.invalid.length})</b>`, `<blockquote>${names(data.invalid)}</blockquote>`, "<i>Check the spelling, then send them again.</i>");
-  if (data.unchecked?.length) lines.push(`⏳ <b>Not checked yet (${data.unchecked.length})</b>`, `<blockquote>${names(data.unchecked)}</blockquote>`, "<i>Send these again with /roster add to check them.</i>");
+  if (data.unchecked?.length) lines.push(`⏳ <b>Queued for checking (${data.unchecked.length})</b>`, `<blockquote>${names(data.unchecked)}</blockquote>`);
+  if (data.checking > 0) lines.push(`⏳ <b>Checking on Codeforces: ${data.checking}.</b> A background check finishes these within a few minutes. /roster list shows the progress.`);
   return lines.join("\n");
 }
 

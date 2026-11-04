@@ -606,6 +606,7 @@ model GroupRoster {
   recipientId String
   handle      String
   addedAt     DateTime @default(now())
+  status      String   @default("valid")
   recipient   TelegramRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
   @@unique([recipientId, handle])
 }

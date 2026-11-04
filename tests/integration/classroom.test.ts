@@ -6,7 +6,7 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("@/lib/db", async () => ({ db: (await import("./db")).realDb }));
 
 import { realDb as db, resetDb } from "./db";
-import { classroomReport, customRefFor, FETCH_BUDGET, groupProblemAction, rosterAction, ROSTER_MAX } from "@/lib/bot/classroom";
+import { classroomReport, customRefFor, FETCH_BUDGET, groupProblemAction, rosterAction, ROSTER_MAX, workPending } from "@/lib/bot/classroom";
 import { registerPrivate, setGroup, connectHandle, dueItems } from "@/lib/bot/community";
 import { chatKey } from "@/lib/telegram/chat-cipher";
 import { hashTelegramId } from "@/lib/telegram/bot-auth";
@@ -160,18 +160,27 @@ describe("roster validation", () => {
     vi.unstubAllGlobals();
   });
 
-  it("handles beyond this request's budget are reported as not checked yet", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: string | URL) => {
-        const handle = new URL(String(input)).searchParams.get("handles") ?? "";
-        return Response.json({ status: "OK", result: [{ handle, rating: null }] });
-      }),
-    );
-    const names = Array.from({ length: FETCH_BUDGET + 2 }, (_, i) => `checked${i}x`);
+  it("fifty students are verified in one request when there is time, and nothing is left pending", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => Response.json({ status: "OK", result: [{ handle: new URL(String(input)).searchParams.get("handles"), rating: null }] })));
+    const names = Array.from({ length: 50 }, (_, i) => `student${String(i).padStart(2, "0")}x`);
     const r = await rosterAction(SECRET, GROUP, "add", names, { validate: true });
-    expect(r.added.length).toBe(FETCH_BUDGET);
-    expect(r.unchecked.length).toBe(2);
+    expect(r.added.length).toBe(50);
+    expect(r.checking).toBe(0);
+    expect(r.handles.length).toBe(50);
+    vi.unstubAllGlobals();
+  });
+
+  it("when the time runs out, the entries stay pending, and the background run finishes them", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => Response.json({ status: "OK", result: [{ handle: new URL(String(input)).searchParams.get("handles"), rating: null }] })));
+    const names = Array.from({ length: 50 }, (_, i) => `later${String(i).padStart(2, "0")}x`);
+    const first = await rosterAction(SECRET, GROUP, "add", names, { validate: true, budgetMs: 0 });
+    expect(first.count).toBe(0);
+    expect(first.checking).toBe(50);
+    const run = await workPending(new Date(), 30_000);
+    expect(run.checked.valid).toBe(50);
+    const after = await rosterAction(SECRET, GROUP, "list", []);
+    expect(after.count).toBe(50);
+    expect(after.checking).toBe(0);
     vi.unstubAllGlobals();
   });
 });
