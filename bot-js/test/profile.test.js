@@ -31,7 +31,7 @@ test("the ☰ menu lists the private commands, and groups get the group-relevant
   assert.ok(grp.includes("leaderboard") && grp.includes("roster") && grp.includes("setdaily"));
 });
 
-test("applying the profile sets the texts, the scoped command lists, and the ☰ button", async () => {
+test("applying the profile sets only the command menus and the ☰ button, and never overwrites About or Description", async () => {
   const calls = [];
   const api = {
     setMyDescription: async (p) => calls.push(["description", p]),
@@ -42,6 +42,7 @@ test("applying the profile sets the texts, the scoped command lists, and the ☰
   const result = await applyProfile(api);
   assert.deepEqual(calls.filter((c) => c[0] === "commands").map((c) => c[1]), ["default", "all_private_chats", "all_group_chats"]);
   assert.deepEqual(calls.at(-1), ["menu", "commands"]);
+  assert.ok(!calls.some((c) => c[0] === "description" || c[0] === "short"), "About and Description must be left alone");
   assert.equal(result.privateCommands, privateMenu().length);
 });
 

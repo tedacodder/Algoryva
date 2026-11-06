@@ -243,3 +243,55 @@ export function supportHtml() {
     `<blockquote>Email: <code>${esc(SUPPORT_EMAIL)}</code>\nInclude the command you sent and what the bot replied, so we can help quickly.</blockquote>`,
   ].join("\n");
 }
+
+/** One line of advice for a member, from what they did. Simple rules, so it is predictable and free to run. */
+export function motivationFor(m) {
+  if (m.pending) return "⏳ Rating still loading. Press again in a minute.";
+  if (m.ratingChange != null && m.ratingChange > 0) return "🚀 Rating up. Your practice is paying off. Keep the streak going.";
+  if (m.solved === 0) return "🌱 No solves this time. Pick one problem you skipped and upsolve it tomorrow. One calm problem a day beats a panic.";
+  if (m.ratingChange != null && m.ratingChange < 0) return "💪 A tough round happens to everyone. Review the problems you did not finish: that is where the growth is.";
+  if (m.rank <= 3) return "🏅 A podium finish. Share your approach with the group.";
+  return "🔥 Solid effort. Consistency is the secret: keep practicing a little every day.";
+}
+
+export function ratingHtml(p) {
+  const best = p.maxRating ? ` · best ${p.maxRating}` : "";
+  const rank = `${esc(p.rank ?? "unranked")}${p.maxRank ? ` (best: ${esc(p.maxRank)})` : ""}`;
+  return [
+    `⭐ <b>${esc(p.handle)}</b>`,
+    `<blockquote>Rating <b>${p.rating ?? "unrated"}</b>${best}\nRank: ${rank}\nRated contests: ${p.contests ?? "unknown"}</blockquote>`,
+    "<i>Ratings update after each rated contest.</i>",
+  ].join("\n");
+}
+
+const LIVE = "🔴 <b>LIVE</b>. Press 🔄 Refresh for the latest standings.";
+
+/** The top of the field and this chat's members. Live while the contest runs, final afterwards. */
+export function ranklistHtml(data) {
+  const status = data.contest.phase === "CODING" ? LIVE : data.contest.phase === "FINISHED" ? "✅ <b>Final results</b>" : `<i>${esc(data.contest.phase || "Upcoming")}</i>`;
+  const lines = [`🏁 <b>${esc(data.contest.name)}</b>`, status];
+  if (data.top.length) {
+    const top = data.top.map((r) => `${MEDALS[r.rank - 1] ?? `${r.rank}.`} ${esc(r.handle)} — ${r.points} pts · ${r.solved} solved`);
+    lines.push("<b>Top 10</b>", `<blockquote>${top.join("\n")}</blockquote>`);
+  }
+  if (data.members.length) {
+    const mine = data.members.map((r) => `#${r.rank} ${esc(r.handle)} — ${r.solved} solved · ${r.points} pts`);
+    lines.push("<b>Your class</b>", `<blockquote>${mine.join("\n")}</blockquote>`);
+  }
+  if (data.missing.length) lines.push(`<i>Not in this contest: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}</i>`);
+  lines.push(`<i>Updated ${esc(new Date(data.checkedAt).toISOString().slice(11, 19))} UTC</i>`);
+  return lines.join("\n");
+}
+
+/** After a contest: each member in their own quote, with place, solved count, rating change and advice. */
+export function summaryHtml(data) {
+  const final = data.contest.phase === "FINISHED";
+  const lines = [`📝 <b>Contest summary</b> · ${esc(data.contest.name)}`, final ? "✅ <i>Final results</i>" : "🔴 <i>Still running: numbers may change</i>"];
+  for (const m of data.members) {
+    const change = m.pending ? "rating pending" : m.ratingChange == null ? "no rating change" : `rating ${m.ratingChange > 0 ? "+" : ""}${m.ratingChange}`;
+    lines.push(`<blockquote>#${m.rank} <b>${esc(m.handle)}</b> · ${m.solved} solved · ${m.points} pts\n📈 ${change}\n${motivationFor(m)}</blockquote>`);
+  }
+  if (data.missing.length) lines.push(`<i>Did not take part: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}</i>`);
+  return lines.join("\n");
+}
+

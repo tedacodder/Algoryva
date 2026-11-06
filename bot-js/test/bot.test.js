@@ -369,3 +369,39 @@ test("the group Leaderboard button starts the checking message and fills in the 
   assert.match(edit.payload.text, /Group leaderboard/);
 });
 
+test("/rating shows a handle's card, and a bad handle gets the usage line", async () => {
+  const h = makeHarness({ siteOverrides: { rating: async () => ({ handle: "tourist", rating: 3900, maxRating: 4000, rank: "legendary grandmaster", maxRank: "tourist", contests: 80 }) } });
+  await h.bot.handleUpdate(h.update({ text: "/rating tourist" }));
+  assert.match(h.sent[0].text, /Rating <b>3900<\/b>/);
+  await h.bot.handleUpdate(h.update({ text: "/rating no way" }));
+  assert.match(h.sent[1].text, /Use: .*rating tourist/);
+});
+
+test("/ranklist posts a loading message, then edits it into the live ranklist with a Refresh button", async () => {
+  const h = makeHarness({ siteOverrides: { ranklist: async () => ({ contest: { id: 2279, name: "Round 1000", phase: "CODING" }, top: [], members: [], missing: [], checkedAt: "2026-11-05T10:00:00.000Z" }) } });
+  await h.bot.handleUpdate(h.update({ text: "/ranklist", chatType: "group", chatId: -1009000000777 }));
+  assert.match(h.sent[0].text, /Loading the ranklist/);
+  const edit = h.telegramCalls.find((c) => c.method === "editMessageText");
+  assert.match(edit.payload.text, /LIVE/);
+  assert.equal(edit.payload.reply_markup.inline_keyboard[0][0].callback_data, "rl:2279");
+});
+
+test("the Refresh button on a ranklist edits the same message with the newest standings", async () => {
+  const h = makeHarness({ siteOverrides: { ranklist: async () => ({ contest: { id: 2279, name: "Round 1000", phase: "FINISHED" }, top: [], members: [], missing: [], checkedAt: "2026-11-05T11:00:00.000Z" }) } });
+  await h.bot.handleUpdate({
+    update_id: 993,
+    callback_query: { id: "rlcb", from: { id: 42, is_bot: false, first_name: "Amy" }, chat_instance: "1", data: "rl:2279", message: { message_id: 55, date: 0, chat: { id: -1009000000777, type: "supergroup", title: "CP" }, from: { id: 1, is_bot: true, first_name: "CF" }, text: "x" } },
+  });
+  const edit = h.telegramCalls.find((c) => c.method === "editMessageText");
+  assert.equal(edit.payload.message_id, 55);
+  assert.match(edit.payload.text, /Final results/);
+});
+
+test("/summary posts a loading message, then edits it into the summary", async () => {
+  const h = makeHarness({ siteOverrides: { summary: async () => ({ contest: { id: 2279, name: "Round 1000", phase: "FINISHED" }, members: [{ handle: "amy", rank: 3, solved: 3, points: 2500, ratingChange: 45, pending: false }], missing: [] }) } });
+  await h.bot.handleUpdate(h.update({ text: "/summary", chatType: "group", chatId: -1009000000777 }));
+  assert.match(h.sent[0].text, /Writing the contest summary/);
+  const edit = h.telegramCalls.find((c) => c.method === "editMessageText");
+  assert.match(edit.payload.text, /rating \+45/);
+});
+
