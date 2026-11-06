@@ -237,3 +237,20 @@ export async function userProfile(handle: string, now: Date): Promise<Profile | 
   });
 }
 
+export type ProbeResult = { status: string; comment: string | null; rows: { rank: number; handle: string; type: string }[] };
+
+/** A direct, uncached check of one handle in one contest: what Codeforces returns right now. Used by /cfcheck to test the API from the server. */
+export async function probeStanding(contestId: number, handle: string, unofficial: boolean): Promise<ProbeResult> {
+  try {
+    const data = await call<Json>("contest.standings", { contestId: String(contestId), handles: handle, from: "1", count: "10000", showUnofficial: unofficial ? "true" : "false" });
+    const rows = ((data.rows as Json[] | undefined) ?? []).map((r) => {
+      const party = r.party as Json;
+      const member = ((party.members as Json[] | undefined) ?? [])[0] ?? {};
+      return { rank: Number(r.rank), handle: String(member.handle ?? ""), type: String(party.participantType ?? "") };
+    });
+    return { status: "OK", comment: null, rows };
+  } catch (e) {
+    return { status: "FAILED", comment: e instanceof Error ? e.message.slice(0, 200) : "unknown error", rows: [] };
+  }
+}
+

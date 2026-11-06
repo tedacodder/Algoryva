@@ -220,3 +220,16 @@ test("pageLines never splits a block, even when a single block is large", () => 
   assert.deepEqual(pageLines(["a".repeat(10), "b".repeat(10)], 15), ["a".repeat(10), "b".repeat(10)]);
 });
 
+import { cfcheckHtml } from "../src/formatting.js";
+
+test("the API check shows the rank when Codeforces lists the handle, and says so when it does not", () => {
+  const listed = cfcheckHtml(2283, "Tedacodder", {
+    official: { status: "OK", comment: null, rows: [{ rank: 512, handle: "Tedacodder", type: "CONTESTANT" }] },
+    unofficial: { status: "OK", comment: null, rows: [{ rank: 512, handle: "Tedacodder", type: "CONTESTANT" }] },
+  });
+  assert.match(listed, /Official standings: rank <b>512<\/b> \(CONTESTANT\)/);
+  const missing = cfcheckHtml(2283, "Tedacodder", { official: { status: "OK", comment: null, rows: [] }, unofficial: { status: "FAILED", comment: "contestId: bad", rows: [] } });
+  assert.match(missing, /Official standings: not listed/);
+  assert.match(missing, /Codeforces returned an error \(contestId: bad\)/);
+});
+
