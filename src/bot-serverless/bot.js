@@ -324,18 +324,23 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
       await editMessage(chat, messageId, F.ranklistHtml(data), refreshRanklist(data.contest.id));
     } catch (error) {
       const text = error instanceof SiteError ? T.errorText(error.code) : T.GENERIC;
-      if (!(error instanceof SiteError)) console.error("ranklist failed:", error?.name ?? "unknown");
+      if (!(error instanceof SiteError)) console.error("ranklist failed:", error?.name ?? "unknown", error?.description ?? "");
       await editMessage(chat, messageId, `<blockquote>${text}</blockquote>`, contestId ? refreshRanklist(contestId) : undefined).catch(() => undefined);
     }
   }
 
+  // A long summary goes into several messages: the first replaces the "writing" note, the rest are sent after it.
   async function showSummary(chat, messageId, contestId) {
     try {
       const data = await site.summary(String(chat), contestId);
-      await editMessage(chat, messageId, F.summaryHtml(data), undefined);
+      const pages = F.summaryPages(data);
+      await editMessage(chat, messageId, pages[0], undefined);
+      for (const page of pages.slice(1)) {
+        await bot.api.sendMessage(chat, page, { parse_mode: "HTML", link_preview_options: { is_disabled: true } });
+      }
     } catch (error) {
       const text = error instanceof SiteError ? T.errorText(error.code) : T.GENERIC;
-      if (!(error instanceof SiteError)) console.error("summary failed:", error?.name ?? "unknown");
+      if (!(error instanceof SiteError)) console.error("summary failed:", error?.name ?? "unknown", error?.description ?? "");
       await editMessage(chat, messageId, `<blockquote>${text}</blockquote>`, undefined).catch(() => undefined);
     }
   }
