@@ -298,7 +298,7 @@ export function ranklistHtml(data) {
     head.push("<b>Top 10</b>", `<blockquote>${top.join("\n")}</blockquote>`);
   }
   const foot = [];
-  if (data.missing.length) foot.push(`<i>Not in this contest: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}</i>`);
+  if (data.missing.length) foot.push(`<i>Not in the official standings: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}. Virtual or unofficial participation is not counted here.</i>`);
   foot.push(`<i>Updated ${esc(new Date(data.checkedAt).toISOString().slice(11, 19))} UTC</i>`);
   const used = [...head, ...foot].join("\n").length + 300;
   const rows = [];
@@ -325,7 +325,7 @@ export function summaryPages(data) {
     const change = m.pending ? "rating pending" : m.ratingChange == null ? "no rating change" : `rating ${m.ratingChange > 0 ? "+" : ""}${m.ratingChange}`;
     blocks.push(`<blockquote>#${m.rank} <b>${esc(m.handle)}</b> · ${m.solved} solved · ${m.points} pts\n📈 ${change}\n${motivationFor(m)}</blockquote>`);
   }
-  if (data.missing.length) blocks.push(`<i>Did not take part: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}</i>`);
+  if (data.missing.length) blocks.push(`<i>Not in the official standings: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}. Virtual or unofficial participation is not counted here.</i>`);
   return pageLines(blocks);
 }
 
