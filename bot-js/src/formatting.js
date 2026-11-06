@@ -267,31 +267,68 @@ export function ratingHtml(p) {
 const LIVE = "🔴 <b>LIVE</b>. Press 🔄 Refresh for the latest standings.";
 
 /** The top of the field and this chat's members. Live while the contest runs, final afterwards. */
+// Telegram rejects a message longer than 4096 characters, so long output is split at this safe size.
+const SAFE_LIMIT = 3800;
+
+/** Packs whole blocks into pages that each fit one Telegram message. A block is never split in the middle. */
+export function pageLines(blocks, limit = SAFE_LIMIT) {
+  const pages = [];
+  let current = [];
+  let size = 0;
+  for (const block of blocks) {
+    const add = block.length + 1;
+    if (size + add > limit && current.length) {
+      pages.push(current.join("\n"));
+      current = [];
+      size = 0;
+    }
+    current.push(block);
+    size += add;
+  }
+  if (current.length) pages.push(current.join("\n"));
+  return pages.length ? pages : [""];
+}
+
+/** The ranking for one message. The class list is shortened only when it would not fit, and says how many are hidden. */
 export function ranklistHtml(data) {
   const status = data.contest.phase === "CODING" ? LIVE : data.contest.phase === "FINISHED" ? "✅ <b>Final results</b>" : `<i>${esc(data.contest.phase || "Upcoming")}</i>`;
-  const lines = [`🏁 <b>${esc(data.contest.name)}</b>`, status];
+  const head = [`🏁 <b>${esc(data.contest.name)}</b>`, status];
   if (data.top.length) {
     const top = data.top.map((r) => `${MEDALS[r.rank - 1] ?? `${r.rank}.`} ${esc(r.handle)} — ${r.points} pts · ${r.solved} solved`);
-    lines.push("<b>Top 10</b>", `<blockquote>${top.join("\n")}</blockquote>`);
+    head.push("<b>Top 10</b>", `<blockquote>${top.join("\n")}</blockquote>`);
   }
+  const foot = [];
+  if (data.missing.length) foot.push(`<i>Not in this contest: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}</i>`);
+  foot.push(`<i>Updated ${esc(new Date(data.checkedAt).toISOString().slice(11, 19))} UTC</i>`);
+  const used = [...head, ...foot].join("\n").length + 300;
+  const rows = [];
+  let room = SAFE_LIMIT - used;
+  for (const r of data.members) {
+    const line = `#${r.rank} ${esc(r.handle)} — ${r.solved} solved · ${r.points} pts`;
+    if (line.length + 1 > room) break;
+    rows.push(line);
+    room -= line.length + 1;
+  }
+  const hidden = data.members.length - rows.length;
+  const mine = [];
   if (data.members.length) {
-    const mine = data.members.map((r) => `#${r.rank} ${esc(r.handle)} — ${r.solved} solved · ${r.points} pts`);
-    lines.push("<b>Your class</b>", `<blockquote>${mine.join("\n")}</blockquote>`);
+    mine.push("<b>Your class</b>", `<blockquote>${rows.join("\n")}${hidden ? `\n… and ${hidden} more` : ""}</blockquote>`);
   }
-  if (data.missing.length) lines.push(`<i>Not in this contest: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}</i>`);
-  lines.push(`<i>Updated ${esc(new Date(data.checkedAt).toISOString().slice(11, 19))} UTC</i>`);
-  return lines.join("\n");
+  return [...head, ...mine, ...foot].join("\n");
 }
 
-/** After a contest: each member in their own quote, with place, solved count, rating change and advice. */
-export function summaryHtml(data) {
+/** After a contest: one quote per member, split into pages that each fit one Telegram message. */
+export function summaryPages(data) {
   const final = data.contest.phase === "FINISHED";
-  const lines = [`📝 <b>Contest summary</b> · ${esc(data.contest.name)}`, final ? "✅ <i>Final results</i>" : "🔴 <i>Still running: numbers may change</i>"];
+  const blocks = [`📝 <b>Contest summary</b> · ${esc(data.contest.name)}`, final ? "✅ <i>Final results</i>" : "🔴 <i>Still running: numbers may change</i>"];
   for (const m of data.members) {
     const change = m.pending ? "rating pending" : m.ratingChange == null ? "no rating change" : `rating ${m.ratingChange > 0 ? "+" : ""}${m.ratingChange}`;
-    lines.push(`<blockquote>#${m.rank} <b>${esc(m.handle)}</b> · ${m.solved} solved · ${m.points} pts\n📈 ${change}\n${motivationFor(m)}</blockquote>`);
+    blocks.push(`<blockquote>#${m.rank} <b>${esc(m.handle)}</b> · ${m.solved} solved · ${m.points} pts\n📈 ${change}\n${motivationFor(m)}</blockquote>`);
   }
-  if (data.missing.length) lines.push(`<i>Did not take part: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}</i>`);
-  return lines.join("\n");
+  if (data.missing.length) blocks.push(`<i>Did not take part: ${data.missing.slice(0, 30).map((h) => esc(h)).join(", ")}</i>`);
+  return pageLines(blocks);
 }
 
+export function summaryHtml(data) {
+  return summaryPages(data).join("\n");
+}

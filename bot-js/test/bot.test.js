@@ -405,3 +405,15 @@ test("/summary posts a loading message, then edits it into the summary", async (
   assert.match(edit.payload.text, /rating \+45/);
 });
 
+test("a long summary is sent as several messages, each within Telegram's limit", async () => {
+  const members = Array.from({ length: 60 }, (_, i) => ({ handle: `student_${String(i).padStart(2, "0")}`, rank: i + 1, solved: 2, points: 300, ratingChange: 10, pending: false }));
+  const h = makeHarness({ siteOverrides: { summary: async () => ({ contest: { id: 2279, name: "Round 1000", phase: "FINISHED" }, members, missing: [] }) } });
+  await h.bot.handleUpdate(h.update({ text: "/summary", chatType: "group", chatId: -1009000000777 }));
+  const texts = [
+    ...h.telegramCalls.filter((c) => c.method === "editMessageText").map((c) => c.payload.text),
+    ...h.telegramCalls.filter((c) => c.method === "sendMessage").slice(1).map((c) => c.payload.text),
+  ];
+  assert.ok(texts.length > 1, "more than one message");
+  for (const t of texts) assert.ok(t.length <= 4096, `message is ${t.length} characters`);
+});
+

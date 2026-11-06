@@ -198,3 +198,25 @@ test("the summary gives each member their place, rating change and advice", () =
   assert.match(html, /Did not take part: dee/);
 });
 
+import { pageLines, summaryPages } from "../src/formatting.js";
+
+test("a class of sixty keeps the ranklist inside Telegram's 4096-character limit", () => {
+  const members = Array.from({ length: 60 }, (_, i) => ({ rank: i + 1, handle: `student_${String(i).padStart(2, "0")}`, points: 100 - i, solved: 3 }));
+  const html = ranklistHtml({ ...RANK_DATA, members, missing: [] });
+  assert.ok(html.length <= 4096, `ranklist is ${html.length} characters`);
+  assert.match(html, /#60 student_59/);
+});
+
+test("a class of sixty gets a summary split into pages that each fit Telegram, with every member present", () => {
+  const members = Array.from({ length: 60 }, (_, i) => ({ handle: `student_${String(i).padStart(2, "0")}`, rank: i + 1, solved: 2, points: 300, ratingChange: 10, pending: false }));
+  const pages = summaryPages({ contest: { id: 1, name: "Round 1000", phase: "FINISHED" }, members, missing: [] });
+  assert.ok(pages.length > 1);
+  for (const page of pages) assert.ok(page.length <= 4096, `page is ${page.length} characters`);
+  const joined = pages.join("\n");
+  for (const m of members) assert.ok(joined.includes(m.handle), m.handle);
+});
+
+test("pageLines never splits a block, even when a single block is large", () => {
+  assert.deepEqual(pageLines(["a".repeat(10), "b".repeat(10)], 15), ["a".repeat(10), "b".repeat(10)]);
+});
+
