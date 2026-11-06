@@ -7,8 +7,8 @@ export const DESCRIPTION = "🧠 Your Codeforces coach, in Telegram.\n\n🎲 Ran
 export const SHORT_DESCRIPTION = "🧠 Daily Codeforces problems, contest alerts & class leaderboards. Send /start";
 
 // What a private chat shows under the ☰ menu button, and what a group shows when someone types "/".
-const PRIVATE_MENU = ["start", "random", "daily", "contests", "next", "connect", "me", "disconnect", "notify", "stop", "support", "help"];
-const GROUP_MENU = ["random", "daily", "contests", "next", "leaderboard", "report", "roster", "setdaily", "enable", "disable", "help", "support"];
+const PRIVATE_MENU = ["start", "random", "daily", "contests", "next", "rating", "ranklist", "summary", "connect", "me", "disconnect", "notify", "stop", "support", "help"];
+const GROUP_MENU = ["random", "daily", "contests", "next", "ranklist", "summary", "leaderboard", "report", "roster", "setdaily", "enable", "disable", "help", "support"];
 
 function menuFor(names) {
   return names.filter((n) => COMMANDS.some((c) => c.name === n) && MENU_TEXT[n]).map((n) => ({ command: n, description: MENU_TEXT[n] }));
@@ -19,8 +19,7 @@ export const groupMenu = () => menuFor(GROUP_MENU);
 export const botCommands = privateMenu;
 
 export async function applyProfile(api) {
-  await api.setMyDescription({ description: DESCRIPTION });
-  await api.setMyShortDescription({ short_description: SHORT_DESCRIPTION });
+  // About and Description are not set here: they are written in BotFather and must not be overwritten.
   await api.setMyCommands(privateMenu()); // default: used wherever no scope is set
   await api.setMyCommands(privateMenu(), { scope: { type: "all_private_chats" } });
   await api.setMyCommands(groupMenu(), { scope: { type: "all_group_chats" } });

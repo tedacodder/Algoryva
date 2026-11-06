@@ -308,6 +308,66 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
     return undefined;
   });
 
+  // ---- Codeforces: ratings, ranklists (live or final), and the after-contest summary --------------------------
+  const HANDLE_RE = /^[A-Za-z0-9_.-]{3,24}$/;
+  const contestArg = (raw) => {
+    const v = (raw ?? "").trim();
+    if (!v) return { ok: true, id: null };
+    return /^\d{2,6}$/.test(v) ? { ok: true, id: Number(v) } : { ok: false };
+  };
+  const contestCard = (what, example) => `🏁 Use <code>/${what}</code> for the latest contest, or <code>/${what} ${example}</code> for a contest id.`;
+  const refreshRanklist = (id) => new InlineKeyboard().text("🔄 Refresh", `rl:${id}`);
+
+  async function showRanklist(chat, messageId, contestId) {
+    try {
+      const data = await site.ranklist(String(chat), contestId);
+      await editMessage(chat, messageId, F.ranklistHtml(data), refreshRanklist(data.contest.id));
+    } catch (error) {
+      const text = error instanceof SiteError ? T.errorText(error.code) : T.GENERIC;
+      if (!(error instanceof SiteError)) console.error("ranklist failed:", error?.name ?? "unknown");
+      await editMessage(chat, messageId, `<blockquote>${text}</blockquote>`, contestId ? refreshRanklist(contestId) : undefined).catch(() => undefined);
+    }
+  }
+
+  async function showSummary(chat, messageId, contestId) {
+    try {
+      const data = await site.summary(String(chat), contestId);
+      await editMessage(chat, messageId, F.summaryHtml(data), undefined);
+    } catch (error) {
+      const text = error instanceof SiteError ? T.errorText(error.code) : T.GENERIC;
+      if (!(error instanceof SiteError)) console.error("summary failed:", error?.name ?? "unknown");
+      await editMessage(chat, messageId, `<blockquote>${text}</blockquote>`, undefined).catch(() => undefined);
+    }
+  }
+
+  bot.command("rating", (ctx) => {
+    const handle = (ctx.match ?? "").trim().replace(/^@/, "");
+    if (!HANDLE_RE.test(handle)) return replyHtml(ctx, "🔎 Use: <code>/rating tourist</code>", { menu: true });
+    return act(ctx, async () => ({ html: F.ratingHtml(await site.rating(handle)) }), { menu: true });
+  });
+
+  bot.command("ranklist", async (ctx) => {
+    const arg = contestArg(ctx.match);
+    if (!arg.ok) return replyHtml(ctx, contestCard("ranklist", "2279"), { menu: true });
+    const placeholder = await replyHtml(ctx, "🏁 <b>Loading the ranklist…</b>", { menu: true });
+    return showRanklist(ctx.chat.id, placeholder.message_id, arg.id);
+  });
+
+  bot.callbackQuery(/^rl:(\d+)$/, async (ctx) => {
+    const id = Number(ctx.callbackQuery.data.slice(3));
+    await ctx.answerCallbackQuery({ text: "Refreshing…" }).catch(() => undefined);
+    const message = ctx.callbackQuery.message;
+    if (!message) return undefined;
+    return showRanklist(message.chat.id, message.message_id, id || null);
+  });
+
+  bot.command("summary", async (ctx) => {
+    const arg = contestArg(ctx.match);
+    if (!arg.ok) return replyHtml(ctx, contestCard("summary", "2279"), { menu: true });
+    const placeholder = await replyHtml(ctx, "📝 <b>Writing the contest summary…</b>", { menu: true });
+    return showSummary(ctx.chat.id, placeholder.message_id, arg.id);
+  });
+
   // ---- group buttons: the same actions as the commands, answered in the group ------------------------------------
   const groupActions = {
     random: (ctx) => act(ctx, randomAction(ctx, ""), { menu: true }),

@@ -145,3 +145,56 @@ test("a handle that could not be looked up in time says it is checking", () => {
   assert.match(html, /rating <b>1200<\/b> · 4 solved/);
 });
 
+import { motivationFor, ratingHtml, ranklistHtml, summaryHtml } from "../src/formatting.js";
+
+test("advice follows what the member did: up, zero, down, podium, pending, default", () => {
+  assert.match(motivationFor({ solved: 2, rank: 9, ratingChange: 40 }), /Rating up/);
+  assert.match(motivationFor({ solved: 0, rank: 9, ratingChange: null }), /upsolve it tomorrow/);
+  assert.match(motivationFor({ solved: 2, rank: 9, ratingChange: -20 }), /tough round/);
+  assert.match(motivationFor({ solved: 3, rank: 2, ratingChange: null }), /podium/);
+  assert.match(motivationFor({ solved: 3, rank: 9, ratingChange: null, pending: true }), /still loading/);
+  assert.match(motivationFor({ solved: 3, rank: 9, ratingChange: null }), /Solid effort/);
+});
+
+test("a rating card shows rating, best rating, rank and rated contests, with names escaped", () => {
+  const html = ratingHtml({ handle: "tourist", rating: 3900, maxRating: 4000, rank: "legendary grandmaster", maxRank: "tourist", contests: 80 });
+  assert.match(html, /Rating <b>3900<\/b> · best 4000/);
+  assert.match(html, /Rated contests: 80/);
+  assert.match(ratingHtml({ handle: "a<b", rating: null, maxRating: null, rank: null, maxRank: null, contests: null }), /a&lt;b/);
+});
+
+const RANK_DATA = {
+  contest: { id: 2279, name: "Round 1000", phase: "CODING" },
+  top: [{ rank: 1, handle: "tourist", points: 4000, solved: 4 }],
+  members: [{ rank: 12, handle: "amy", points: 1500, solved: 2 }],
+  missing: ["ben"],
+  checkedAt: "2026-11-05T10:00:00.000Z",
+};
+
+test("a running contest is labelled LIVE, a finished one as final, and both name the class and the missing", () => {
+  const live = ranklistHtml(RANK_DATA);
+  assert.match(live, /LIVE/);
+  assert.match(live, /🥇 tourist/);
+  assert.match(live, /#12 amy/);
+  assert.match(live, /Not in this contest: ben/);
+  assert.match(ranklistHtml({ ...RANK_DATA, contest: { ...RANK_DATA.contest, phase: "FINISHED" } }), /Final results/);
+});
+
+test("the summary gives each member their place, rating change and advice", () => {
+  const html = summaryHtml({
+    contest: { id: 2279, name: "Round 1000", phase: "FINISHED" },
+    members: [
+      { handle: "amy", rank: 3, solved: 3, points: 2500, ratingChange: 45, pending: false },
+      { handle: "ben", rank: 40, solved: 0, points: 0, ratingChange: -30, pending: false },
+      { handle: "cy", rank: 80, solved: 1, points: 500, ratingChange: null, pending: true },
+    ],
+    missing: ["dee"],
+  });
+  assert.match(html, /Final results/);
+  assert.match(html, /rating \+45/);
+  assert.match(html, /rating -30/);
+  assert.match(html, /rating pending/);
+  assert.match(html, /upsolve it tomorrow/);
+  assert.match(html, /Did not take part: dee/);
+});
+

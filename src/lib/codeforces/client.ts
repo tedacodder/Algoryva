@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { parseStandings, type Standings } from "./standings";
 import type { CfContest, CfProblem } from "@/lib/codeforces/pick";
 
 /**
@@ -184,3 +185,55 @@ export async function userSolved(handle: string, now: Date): Promise<string[] | 
     return list.map((x) => x.ref);
   });
 }
+
+/** Contests of every kind on Codeforces (not gym), so a running or finished one can be found. */
+export async function contestsAll(now: Date): Promise<{ id: number; name: string; startTimeSeconds: number; durationSeconds: number; phase: string }[] | null> {
+  return cached(`contest.list:all`, 5 * 60_000, now, async () => {
+    const list = await call<Json[]>("contest.list", { gym: "false" });
+    return list.map((c) => ({
+      id: Number(c.id),
+      name: String(c.name),
+      startTimeSeconds: Number(c.startTimeSeconds ?? 0),
+      durationSeconds: Number(c.durationSeconds ?? 0),
+      phase: String(c.phase ?? ""),
+    }));
+  });
+}
+
+/** A contest's standings: the top of the field, or only the given handles. Refreshed every five minutes, so a live contest stays current. */
+export async function contestStandings(contestId: number, handles: string[], top: number, now: Date): Promise<Standings | null> {
+  const scope = handles.length ? handles.map((h) => h.toLowerCase()).sort().join(",") : `top${top}`;
+  return cached<Standings>(`standings:${contestId}:${scope}`, 5 * 60_000, now, async () => {
+    const params: Record<string, string> = handles.length
+      ? { contestId: String(contestId), handles: handles.join(";"), from: "1", count: String(handles.length) }
+      : { contestId: String(contestId), from: "1", count: String(top) };
+    return parseStandings(await call<Json>("contest.standings", params));
+  });
+}
+
+export type RatingChange = { contestId: number; oldRating: number; newRating: number; rank: number };
+
+/** A handle's rating history: one entry per rated contest. */
+export async function userRatingHistory(handle: string, now: Date): Promise<RatingChange[] | null> {
+  return cached<RatingChange[]>(`rating-history:${handle.toLowerCase()}`, USER_TTL_MS, now, async () => {
+    const list = await call<Json[]>("user.rating", { handle });
+    return list.map((c) => ({ contestId: Number(c.contestId), oldRating: Number(c.oldRating), newRating: Number(c.newRating), rank: Number(c.rank) }));
+  });
+}
+
+export type Profile = { handle: string; rating: number | null; maxRating: number | null; rank: string | null; maxRank: string | null };
+
+/** A handle's current profile: rating, best rating, rank and best rank. */
+export async function userProfile(handle: string, now: Date): Promise<Profile | null> {
+  return cached<Profile>(`profile:${handle.toLowerCase()}`, USER_TTL_MS, now, async () => {
+    const [u] = await call<Json[]>("user.info", { handles: handle });
+    return {
+      handle: String(u.handle),
+      rating: u.rating == null ? null : Number(u.rating),
+      maxRating: u.maxRating == null ? null : Number(u.maxRating),
+      rank: u.rank == null ? null : String(u.rank),
+      maxRank: u.maxRank == null ? null : String(u.maxRank),
+    };
+  });
+}
+
