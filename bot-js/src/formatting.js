@@ -332,3 +332,20 @@ export function summaryPages(data) {
 export function summaryHtml(data) {
   return summaryPages(data).join("\n");
 }
+
+/** What Codeforces returned for one handle, read by the server: official standings, and with unofficial ones included. */
+export function cfcheckHtml(contestId, handle, data) {
+  const line = (label, probe) => {
+    if (probe.status !== "OK") return `${label}: Codeforces returned an error${probe.comment ? ` (${esc(probe.comment)})` : ""}`;
+    const row = probe.rows.find((r) => r.handle.toLowerCase() === handle.toLowerCase());
+    return row ? `${label}: rank <b>${row.rank}</b> (${esc(row.type || "official")})` : `${label}: not listed`;
+  };
+  return [
+    "🔎 <b>Codeforces check</b>",
+    `<blockquote>Contest <code>${contestId}</code> · handle <code>${esc(handle)}</code></blockquote>`,
+    line("Official standings", data.official),
+    line("Including unofficial", data.unofficial),
+    "<i>This asks Codeforces directly, now, with no cache.</i>",
+  ].join("\n");
+}
+

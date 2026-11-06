@@ -417,3 +417,11 @@ test("a long summary is sent as several messages, each within Telegram's limit",
   for (const t of texts) assert.ok(t.length <= 4096, `message is ${t.length} characters`);
 });
 
+test("/cfcheck asks the server for one handle in one contest and shows what Codeforces returned", async () => {
+  const h = makeHarness({ siteOverrides: { cfcheck: async () => ({ official: { status: "OK", comment: null, rows: [{ rank: 7, handle: "Tedacodder", type: "CONTESTANT" }] }, unofficial: { status: "OK", comment: null, rows: [] } }) } });
+  await h.bot.handleUpdate(h.update({ text: "/cfcheck 2283 Tedacodder" }));
+  assert.match(h.sent[0].text, /rank <b>7<\/b>/);
+  await h.bot.handleUpdate(h.update({ text: "/cfcheck nope" }));
+  assert.match(h.sent[1].text, /Use: .*cfcheck 2283/);
+});
+

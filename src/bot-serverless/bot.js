@@ -352,6 +352,16 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
     }
   }
 
+  // Tests the Codeforces API from the server, the same place the bot runs: what Codeforces returns for one handle in one contest.
+  bot.command("cfcheck", (ctx) => {
+    const [contest, rawHandle] = (ctx.match ?? "").trim().split(/\s+/);
+    const handle = (rawHandle ?? "").replace(/^@/, "");
+    if (!/^\d{2,6}$/.test(contest ?? "") || !HANDLE_RE.test(handle)) {
+      return replyHtml(ctx, "🔎 Use: <code>/cfcheck 2283 Tedacodder</code> (the contest id, then the handle)", { menu: true });
+    }
+    return act(ctx, async () => ({ html: F.cfcheckHtml(Number(contest), handle, await site.cfcheck(String(ctx.chat.id), Number(contest), handle)) }), { menu: true });
+  });
+
   bot.command("rating", (ctx) => {
     const handle = (ctx.match ?? "").trim().replace(/^@/, "");
     if (!HANDLE_RE.test(handle)) return replyHtml(ctx, "🔎 Use: <code>/rating tourist</code>", { menu: true });
