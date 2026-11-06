@@ -205,7 +205,7 @@ export async function contestStandings(contestId: number, handles: string[], top
   const scope = handles.length ? handles.map((h) => h.toLowerCase()).sort().join(",") : `top${top}`;
   return cached<Standings>(`standings:${contestId}:${scope}`, 5 * 60_000, now, async () => {
     const params: Record<string, string> = handles.length
-      ? { contestId: String(contestId), handles: handles.join(";"), from: "1", count: String(handles.length) }
+      ? { contestId: String(contestId), handles: handles.join(";"), from: "1", count: "10000" } // a short count could cut off a member ranked low in a big contest
       : { contestId: String(contestId), from: "1", count: String(top) };
     return parseStandings(await call<Json>("contest.standings", params));
   });

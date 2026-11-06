@@ -176,7 +176,7 @@ test("a running contest is labelled LIVE, a finished one as final, and both name
   assert.match(live, /LIVE/);
   assert.match(live, /🥇 tourist/);
   assert.match(live, /#12 amy/);
-  assert.match(live, /Not in this contest: ben/);
+  assert.match(live, /Not in the official standings: ben/);
   assert.match(ranklistHtml({ ...RANK_DATA, contest: { ...RANK_DATA.contest, phase: "FINISHED" } }), /Final results/);
 });
 
@@ -195,7 +195,7 @@ test("the summary gives each member their place, rating change and advice", () =
   assert.match(html, /rating -30/);
   assert.match(html, /rating pending/);
   assert.match(html, /upsolve it tomorrow/);
-  assert.match(html, /Did not take part: dee/);
+  assert.match(html, /Not in the official standings: dee/);
 });
 
 import { pageLines, summaryPages } from "../src/formatting.js";
