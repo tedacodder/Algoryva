@@ -259,12 +259,19 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
     return kb;
   };
 
+  // Edits a bot message. If Telegram will not edit it (for example, the loading message was removed), the result is sent as a new message instead, so nothing is lost.
   async function editMessage(chat, messageId, html, markup) {
+    const options = { parse_mode: "HTML", link_preview_options: { is_disabled: true } };
     try {
-      await bot.api.editMessageText(chat, messageId, html, { parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: markup });
+      await bot.api.editMessageText(chat, messageId, html, { ...options, reply_markup: markup });
     } catch (error) {
-      // Telegram refuses an edit that changes nothing. That is harmless, so it is ignored.
-      if (!(error instanceof GrammyError && /not modified/i.test(error.description ?? ""))) throw error;
+      const reason = error instanceof GrammyError ? (error.description ?? "") : "";
+      if (/not modified/i.test(reason)) return; // nothing changed: fine
+      if (/can't be edited|message to edit not found/i.test(reason)) {
+        await bot.api.sendMessage(chat, html, { ...options, reply_markup: markup });
+        return;
+      }
+      throw error;
     }
   }
 
@@ -354,7 +361,7 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
   bot.command("ranklist", async (ctx) => {
     const arg = contestArg(ctx.match);
     if (!arg.ok) return replyHtml(ctx, contestCard("ranklist", "2279"), { menu: true });
-    const placeholder = await replyHtml(ctx, "🏁 <b>Loading the ranklist…</b>", { menu: true });
+    const placeholder = await replyHtml(ctx, "🏁 <b>Loading the ranklist…</b>"); // same kind of loading message as /leaderboard
     return showRanklist(ctx.chat.id, placeholder.message_id, arg.id);
   });
 
@@ -369,7 +376,7 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
   bot.command("summary", async (ctx) => {
     const arg = contestArg(ctx.match);
     if (!arg.ok) return replyHtml(ctx, contestCard("summary", "2279"), { menu: true });
-    const placeholder = await replyHtml(ctx, "📝 <b>Writing the contest summary…</b>", { menu: true });
+    const placeholder = await replyHtml(ctx, "📝 <b>Writing the contest summary…</b>"); // same kind of loading message as /leaderboard
     return showSummary(ctx.chat.id, placeholder.message_id, arg.id);
   });
 
