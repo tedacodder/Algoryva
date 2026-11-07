@@ -425,3 +425,19 @@ test("/cfcheck asks the server for one handle in one contest and shows what Code
   assert.match(h.sent[1].text, /Use: .*cfcheck 2283/);
 });
 
+test("/stats answers only the owner, in a private chat, and looks like an unknown command to anyone else", async () => {
+  const previous = process.env.OWNER_TELEGRAM_ID;
+  process.env.OWNER_TELEGRAM_ID = "42";
+  try {
+    const h = makeHarness({ siteOverrides: { stats: async () => ({ privateChats: 5, groups: 1, blocked: 0, activePrivate7d: 3, activeGroups7d: 1, accounts: 2, linked: 1, optedIn: 0, activeLearners7d: 1, handles: 2, rosterValid: 0, rosterPending: 0, sent24h: 4, failed24h: 0, blocked24h: 0, checkedAt: "2026-11-08T10:00:00.000Z" }) } });
+    const owner = { update_id: 994, message: { message_id: 1, date: 0, chat: { id: 42, type: "private", first_name: "Owner" }, from: { id: 42, is_bot: false, first_name: "Owner" }, text: "/stats", entities: [{ type: "bot_command", offset: 0, length: 6 }] } };
+    await h.bot.handleUpdate(owner);
+    assert.match(h.sent[0].text, /Bot statistics/);
+    const stranger = { update_id: 995, message: { message_id: 2, date: 0, chat: { id: 77, type: "private", first_name: "Amy" }, from: { id: 77, is_bot: false, first_name: "Amy" }, text: "/stats", entities: [{ type: "bot_command", offset: 0, length: 6 }] } };
+    await h.bot.handleUpdate(stranger);
+    assert.match(h.sent[1].text, /Unknown command/);
+    assert.doesNotMatch(h.sent[1].text, /statistics/);
+  } finally {
+    if (previous === undefined) delete process.env.OWNER_TELEGRAM_ID; else process.env.OWNER_TELEGRAM_ID = previous;
+  }
+});
