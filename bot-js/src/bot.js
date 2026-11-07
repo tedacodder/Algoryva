@@ -352,6 +352,15 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
     }
   }
 
+  // Owner only. The owner's Telegram id is set in OWNER_TELEGRAM_ID. Anyone else gets the same reply as an unknown command.
+  bot.command("stats", (ctx) => {
+    const owner = process.env.OWNER_TELEGRAM_ID;
+    if (!isPrivate(ctx) || !owner || String(ctx.from?.id) !== owner) {
+      return reply(ctx, "❓ Unknown command. Send /help for the list.");
+    }
+    return act(ctx, async () => ({ html: F.statsHtml(await site.stats()) }));
+  });
+
   // Tests the Codeforces API from the server, the same place the bot runs: what Codeforces returns for one handle in one contest.
   bot.command("cfcheck", (ctx) => {
     const [contest, rawHandle] = (ctx.match ?? "").trim().split(/\s+/);

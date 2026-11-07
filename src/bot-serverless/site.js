@@ -62,5 +62,6 @@ export function createSite({ base, secret, fetchImpl = fetch }) {
     summary: (chatId, contestId) => post("community/summary", contestId ? { chatId, contestId } : { chatId }, { timeoutMs: 60_000 }),
     rating: (handle) => post("community/rating", { handle }, { timeoutMs: 60_000 }),
     cfcheck: (chatId, contestId, handle) => post("community/cfcheck", { chatId, contestId, handle }, { timeoutMs: 60_000 }),
+    stats: () => post("community/stats", {}, { timeoutMs: 60_000 }),
   };
 }

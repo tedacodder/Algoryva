@@ -349,3 +349,18 @@ export function cfcheckHtml(contestId, handle, data) {
   ].join("\n");
 }
 
+/** The owner's view of the bot: who uses it, how active they are, and what the scheduled messages did in the last day. */
+export function statsHtml(s) {
+  const pct = (n, d) => (d ? `${Math.round((n / d) * 100)}%` : "0%");
+  return [
+    "📊 <b>Bot statistics</b>",
+    `<blockquote>👤 Private chats: <b>${s.privateChats}</b> · active this week: <b>${s.activePrivate7d}</b>\n👥 Groups: <b>${s.groups}</b> · active this week: <b>${s.activeGroups7d}</b>\n🚫 Blocked chats: <b>${s.blocked}</b></blockquote>`,
+    "<b>Learners</b>",
+    `<blockquote>🎓 Algoryva accounts: <b>${s.accounts}</b>\n🔗 Linked to Telegram: <b>${s.linked}</b> · on the leaderboard: <b>${s.optedIn}</b>\n✅ Solved something this week: <b>${s.activeLearners7d}</b> (${pct(s.activeLearners7d, s.accounts)})</blockquote>`,
+    "<b>Classes and handles</b>",
+    `<blockquote>🧾 Connected handles: <b>${s.handles}</b>\n📋 Class members: <b>${s.rosterValid}</b> · queued checks: <b>${s.rosterPending}</b></blockquote>`,
+    "<b>Scheduled messages (last 24 hours)</b>",
+    `<blockquote>📨 Sent: <b>${s.sent24h}</b>\n⚠️ Failed: <b>${s.failed24h}</b>\n🚫 Blocked by users: <b>${s.blocked24h}</b></blockquote>`,
+    `<i>Updated ${esc(new Date(s.checkedAt).toISOString().slice(0, 16).replace("T", " "))} UTC</i>`,
+  ].join("\n");
+}

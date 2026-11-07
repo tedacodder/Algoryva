@@ -233,3 +233,12 @@ test("the API check shows the rank when Codeforces lists the handle, and says so
   assert.match(missing, /Codeforces returned an error \(contestId: bad\)/);
 });
 
+import { statsHtml } from "../src/formatting.js";
+
+test("the owner's statistics show the numbers, and a zero active count has no divide-by-zero", () => {
+  const html = statsHtml({ privateChats: 40, groups: 3, blocked: 2, activePrivate7d: 25, activeGroups7d: 2, accounts: 0, linked: 0, optedIn: 0, activeLearners7d: 0, handles: 9, rosterValid: 50, rosterPending: 4, sent24h: 120, failed24h: 1, blocked24h: 2, checkedAt: "2026-11-08T10:00:00.000Z" });
+  assert.match(html, /Private chats: <b>40<\/b> · active this week: <b>25<\/b>/);
+  assert.match(html, /Solved something this week: <b>0<\/b> \(0%\)/);
+  assert.match(html, /Class members: <b>50<\/b> · queued checks: <b>4<\/b>/);
+  assert.match(html, /Updated 2026-11-08 10:00 UTC/);
+});
