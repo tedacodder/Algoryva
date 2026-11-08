@@ -190,3 +190,22 @@ The `docs/` directory contains deeper project documentation, including:
 - `LESSON_QUALITY_STANDARD.md` — requirements enforced for complete lessons
 - `UI_UX_REDESIGN_HANDOFF.md` — interface and design-system notes
 - `ALGORYVA_PROJECT_AUDIT.md` — implementation and verification status
+
+
+## Copyright and Licensing
+
+Copyright (c) 2026 Tewodros Mesfin. All Rights Reserved.
+
+Algoryva is proprietary software.
+
+This repository is publicly visible for demonstration
+and portfolio purposes only.
+
+No license is granted for copying, modifying,
+redistributing, or commercially exploiting the
+proprietary source code.
+
+For commercial licensing or written authorization,
+contact the copyright holder.
+
+See [LICENSE](./LICENSE) for details.
