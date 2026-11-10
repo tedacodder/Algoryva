@@ -2,7 +2,8 @@ import "server-only";
 import { db } from "@/lib/db";
 import { ApiError } from "@/lib/api/errors";
 import { hashTelegramId } from "@/lib/telegram/bot-auth";
-import { CodeforcesError, problemset, userAccepted, userInfo, userSolved, USER_TTL_MS } from "@/lib/codeforces/client";
+import { CodeforcesError, problemset, userInfo, userSolved, USER_TTL_MS } from "@/lib/codeforces/client";
+import { syncHandle, syncStates } from "@/lib/bot/solves";
 import { pickDailyProblem, problemRef, type CfProblem } from "@/lib/codeforces/pick";
 import { utcDay } from "@/lib/bot/daily";
 
@@ -120,15 +121,17 @@ export async function checkPending(groupId: string | null, now: Date, budgetMs: 
 export async function workPending(now: Date, budgetMs: number) {
   const deadline = Date.now() + budgetMs;
   const checked = await checkPending(null, now, budgetMs / 2);
+  // The problem list is read once a day from Codeforces. Warming it here means a learner's first /random does not wait for it.
+  await problemset(now);
   let warmed = 0;
   const members = await db.groupRoster.findMany({ where: { status: "valid" }, orderBy: { addedAt: "asc" }, take: 300, select: { handle: true } });
+  const states = await syncStates(members.map((m) => m.handle));
   for (const member of members) {
     if (Date.now() >= deadline) break;
-    const cached = await db.cfCache.findUnique({ where: { key: `accepted:${member.handle.toLowerCase()}` } });
-    if (cached && now.getTime() - cached.fetchedAt.getTime() < USER_TTL_MS) continue;
+    const state = states.get(member.handle.toLowerCase());
+    if (state?.backfilled && now.getTime() - state.syncedAt.getTime() < 10 * 60_000) continue;
     try {
-      await userAccepted(member.handle, now);
-      await userInfo(member.handle, now);
+      await syncHandle(member.handle, now, !state?.backfilled);
       warmed += 1;
     } catch (e) {
       if (!(e instanceof CodeforcesError)) throw e;

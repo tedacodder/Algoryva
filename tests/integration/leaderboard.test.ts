@@ -17,14 +17,16 @@ import { signRequest } from "@/lib/telegram/bot-auth";
 
 const SECRET = "leaderboard-secret-0123456789abcdef-wxyz";
 const GROUP = "-1009000000555";
-const NOW = new Date();
+const NOW = new Date("2026-10-31T12:00:00Z"); // a Saturday, so the calendar week and month have known starts
 const T = Math.floor(NOW.getTime() / 1000);
 const DAY = 86_400;
 
 const accepted = (refs: string[], daysAgo: number[]) => refs.map((ref, i) => ({ ref, at: T - daysAgo[i] * DAY }));
 
 async function seedAccepted(handle: string, list: { ref: string; at: number }[]) {
-  await db.cfCache.create({ data: { key: `accepted:${handle.toLowerCase()}`, payload: list as unknown as Prisma.InputJsonValue, fetchedAt: NOW } });
+  const lower = handle.toLowerCase();
+  await db.cfSolve.createMany({ data: list.map((a) => ({ handle: lower, problemRef: a.ref, acceptedAt: new Date(a.at * 1000) })) });
+  await db.cfSync.upsert({ where: { handle: lower }, create: { handle: lower, syncedAt: NOW, backfilled: true }, update: { syncedAt: NOW, backfilled: true } });
 }
 
 /** user.info returns a rating for anyone; user.status fails, so uncached students stay pending. */
@@ -47,6 +49,8 @@ beforeEach(async () => {
   vi.stubEnv("TELEGRAM_CHAT_KEY", Buffer.alloc(32, 7).toString("base64"));
   await resetDb();
   await db.cfCache.deleteMany();
+  await db.cfSolve.deleteMany();
+  await db.cfSync.deleteMany();
   codeforcesStub();
   await setGroup(SECRET, chatKey(), GROUP, true);
 });

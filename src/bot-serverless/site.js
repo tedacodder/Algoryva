@@ -2,7 +2,8 @@
 // calls change state. Response bodies are never logged: a link or a chat id is personal.
 import { signedHeaders } from "./sign.js";
 
-const TIMEOUT_MS = 10_000;
+// A first request after the problem list expires can take longer than 10 seconds. 45 seconds stays under the webhook's 55-second limit.
+const TIMEOUT_MS = 45_000;
 const enc = new TextEncoder();
 
 export class SiteError extends Error {

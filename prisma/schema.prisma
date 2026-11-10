@@ -619,3 +619,19 @@ model GroupDaily {
   recipient   TelegramRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 }
 
+/// One accepted Codeforces solve, stored once and never deleted. The first accepted time of each problem is kept.
+model CfSolve {
+  handle     String
+  problemRef String
+  acceptedAt DateTime
+  @@id([handle, problemRef])
+  @@index([handle, acceptedAt])
+}
+
+/// When a handle's solves were last read from Codeforces. backfilled means its full history is stored.
+model CfSync {
+  handle     String   @id
+  syncedAt   DateTime
+  backfilled Boolean  @default(false)
+}
+
