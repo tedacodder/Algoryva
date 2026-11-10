@@ -38,6 +38,14 @@ const ERRORS = {
   not_subscribed: "📭 This chat is not subscribed yet. Send /start, or /enable in a group.",
   bot_api_disabled: "🛠️ The bot is not set up yet. Try again later.",
   bot_api_misconfigured: "🛠️ The bot is not set up yet. Try again later.",
+  codeforces_unavailable: "🌧️ Codeforces is not answering right now. Try again in a few minutes.",
+  contest_not_found: "🔎 That contest was not found on Codeforces. Check the contest id, for example /ranklist 2283.",
+  no_contest: "🏁 No Codeforces contest is running or has finished recently. Try again after the next round.",
+  no_members: "👥 Nobody is in this chat yet. Add students with /roster add, or connect your handle with /connect.",
+  not_started: "👋 Send /start to me first, then try again.",
+  invalid_handle: "✏️ That is not a valid handle. Handles use 3 to 24 letters, numbers, dots, dashes or underscores.",
+  roster_too_large: "📋 The class list is full. A class list holds up to 200 students.",
+  unreachable: "🌐 The bot could not reach its service in time. Try again in a moment.",
 };
 
 export const errorText = (code) => ERRORS[code] ?? GENERIC;
