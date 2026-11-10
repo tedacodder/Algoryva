@@ -254,3 +254,19 @@ export async function probeStanding(contestId: number, handle: string, unofficia
   }
 }
 
+/** The accepted problems of a handle, each with the time it was first accepted. full reads the whole history; otherwise only the newest 100 submissions. */
+export async function acceptedSubmissions(handle: string, full: boolean): Promise<Accepted[]> {
+  const subs = await call<Json[]>("user.status", { handle, from: "1", count: full ? "10000" : "100" });
+  const first = new Map<string, Accepted>();
+  for (const s of subs) {
+    const problem = s.problem as Json | undefined;
+    if (s.verdict === "OK" && problem && typeof problem.contestId === "number" && typeof problem.index === "string") {
+      const ref = `${problem.contestId}/${problem.index}`;
+      const at = typeof s.creationTimeSeconds === "number" ? s.creationTimeSeconds : 0;
+      const previous = first.get(ref);
+      if (!previous || at < previous.at) first.set(ref, { ref, at });
+    }
+  }
+  return [...first.values()];
+}
+
