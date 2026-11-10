@@ -441,3 +441,20 @@ test("/stats answers only the owner, in a private chat, and looks like an unknow
     if (previous === undefined) delete process.env.OWNER_TELEGRAM_ID; else process.env.OWNER_TELEGRAM_ID = previous;
   }
 });
+
+test("/rating for a handle that does not exist says so, instead of a generic error", async () => {
+  const { SiteError } = await import("../src/site.js");
+  const h = makeHarness({ siteOverrides: { rating: async () => { throw new SiteError(404, "handle_not_found"); } } });
+  await h.bot.handleUpdate(h.update({ text: "/rating nobodyhere123" }));
+  assert.match(h.sent[0].text, /can't find a Codeforces user/);
+  assert.doesNotMatch(h.sent[0].text, /Something went wrong/);
+});
+
+test("when Codeforces is down, /rating says so and does not blame the handle", async () => {
+  const { SiteError } = await import("../src/site.js");
+  const h = makeHarness({ siteOverrides: { rating: async () => { throw new SiteError(503, "codeforces_unavailable"); } } });
+  await h.bot.handleUpdate(h.update({ text: "/rating tourist" }));
+  assert.match(h.sent[0].text, /not answering right now/);
+  assert.doesNotMatch(h.sent[0].text, /can't find/);
+});
+

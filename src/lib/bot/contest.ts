@@ -3,6 +3,11 @@ import { db } from "@/lib/db";
 import { ApiError } from "@/lib/api/errors";
 import { hashTelegramId } from "@/lib/telegram/bot-auth";
 import { contestStandings, contestsAll, userProfile, userRatingHistory } from "@/lib/codeforces/client";
+import { notFoundAs } from "@/lib/codeforces/errors";
+
+const CONTEST_NOT_FOUND = "That contest was not found on Codeforces. Check the contest id, for example /ranklist 2283.";
+const HANDLE_NOT_FOUND = "That handle was not found on Codeforces. Check the spelling.";
+const UNAVAILABLE = "Codeforces is not answering right now. Try again in a few minutes.";
 
 /** Codeforces calls one summary or ranklist may spend. The rest wait for the next press. */
 const BUDGET_MS = 35_000;
@@ -38,8 +43,15 @@ async function resolveContest(contestId: number | null, now: Date) {
 export async function ranklistFor(secret: string, chatId: string, contestId: number | null, now: Date) {
   const contest = await resolveContest(contestId, now);
   const handles = await chatHandles(secret, chatId);
-  const top = await contestStandings(contest.id, [], 10, now);
-  const members = handles.length ? await contestStandings(contest.id, handles, handles.length, now) : null;
+  let top;
+  let members;
+  try {
+    top = await contestStandings(contest.id, [], 10, now);
+    members = handles.length ? await contestStandings(contest.id, handles, handles.length, now) : null;
+  } catch (e) {
+    notFoundAs(e, "contest_not_found", CONTEST_NOT_FOUND);
+  }
+  if (top === null || (handles.length > 0 && members === null)) throw new ApiError(503, "codeforces_unavailable", UNAVAILABLE);
   const memberRows = [...(members?.rows ?? [])].sort((a, b) => a.rank - b.rank);
   return {
     contest: { id: contest.id, name: top?.contest.name ?? contest.name ?? `Contest ${contest.id}`, phase: top?.contest.phase ?? contest.phase ?? "" },
@@ -55,7 +67,13 @@ export async function summaryFor(secret: string, chatId: string, contestId: numb
   const contest = await resolveContest(contestId, now);
   const handles = await chatHandles(secret, chatId);
   if (!handles.length) throw new ApiError(409, "no_members", "Add members first with /roster add, or /connect your handle.");
-  const standings = await contestStandings(contest.id, handles, handles.length, now);
+  let standings;
+  try {
+    standings = await contestStandings(contest.id, handles, handles.length, now);
+  } catch (e) {
+    notFoundAs(e, "contest_not_found", CONTEST_NOT_FOUND);
+  }
+  if (standings === null) throw new ApiError(503, "codeforces_unavailable", UNAVAILABLE);
   const deadline = Date.now() + BUDGET_MS;
   const members: { handle: string; rank: number; solved: number; points: number; ratingChange: number | null; pending: boolean }[] = [];
   for (const row of standings?.rows ?? []) {
@@ -80,8 +98,14 @@ export async function summaryFor(secret: string, chatId: string, contestId: numb
 
 /** A handle's profile: current rating, best rating, rank and the number of rated contests. */
 export async function ratingFor(handle: string, now: Date) {
-  const profile = await userProfile(handle, now);
-  if (!profile) throw new ApiError(404, "handle_not_found", "That handle was not found on Codeforces, or Codeforces is unavailable right now.");
-  const history = await userRatingHistory(handle, now);
+  let profile;
+  let history;
+  try {
+    profile = await userProfile(handle, now);
+    history = profile ? await userRatingHistory(handle, now) : null;
+  } catch (e) {
+    notFoundAs(e, "handle_not_found", HANDLE_NOT_FOUND);
+  }
+  if (!profile) throw new ApiError(503, "codeforces_unavailable", UNAVAILABLE);
   return { ...profile, contests: history?.length ?? null };
 }

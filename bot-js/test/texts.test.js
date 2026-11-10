@@ -99,3 +99,12 @@ test("leaderboard accepts week, month and all, and defaults to week", () => {
   assert.equal(parseLeaderboard("year"), null);
 });
 
+test("every error the website can send has its own message, and an unknown one falls back to the generic line", async () => {
+  const { errorText, GENERIC } = await import("../src/texts.js");
+  for (const code of ["handle_not_found", "contest_not_found", "no_contest", "no_members", "not_started", "invalid_handle", "roster_too_large", "codeforces_unavailable", "unreachable", "rate_limited", "cf_unavailable"]) {
+    assert.notEqual(errorText(code), GENERIC, code);
+  }
+  assert.equal(errorText("something_new"), GENERIC);
+  assert.match(errorText("handle_not_found"), /can't find a Codeforces user/);
+});
+
