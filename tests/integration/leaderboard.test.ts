@@ -141,4 +141,24 @@ describe("group leaderboard", () => {
     expect(after.count).toBe(1);
     expect(after.checking).toBe(0);
   });
+
+  it("a student synced on this press is counted on this press, not the next", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = new URL(String(input));
+        const method = url.pathname.split("/").pop();
+        if (method === "user.status") {
+          return Response.json({ status: "OK", result: [{ verdict: "OK", problem: { contestId: 1900, index: "A" }, creationTimeSeconds: T - 3600 }] });
+        }
+        return Response.json({ status: "OK", result: [{ handle: "fresh1x", rating: 1500 }] });
+      }),
+    );
+    await rosterAction(SECRET, GROUP, "set", ["fresh1x"]);
+    await registerStudent("fresh1x");
+    const first = await groupLeaderboard(SECRET, GROUP, "week", NOW, { budgetMs: 30_000 });
+    expect(first.rows[0]).toMatchObject({ handle: "fresh1x", solved: 1 });
+    expect(first.pending).toEqual([]);
+  });
 });
+
