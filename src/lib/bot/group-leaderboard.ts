@@ -101,23 +101,10 @@ export async function groupLeaderboard(secret: string, chatId: string, period: P
   const registered = roster.filter((h) => knownSet.has(h.toLowerCase()));
   const notRegistered = roster.filter((h) => !knownSet.has(h.toLowerCase()));
 
-  // Stored solves for the period, read in one query. Nothing here calls Codeforces.
-  const solveRows = registered.length
-    ? await db.cfSolve.findMany({
-        where: { handle: { in: registered.map((h) => h.toLowerCase()) }, acceptedAt: { gte: new Date(periodStart(period, now) * 1000) } },
-        select: { handle: true, problemRef: true, acceptedAt: true },
-      })
-    : [];
-  const byHandle = new Map<string, Accepted[]>();
-  for (const r of solveRows) {
-    const list = byHandle.get(r.handle) ?? [];
-    list.push({ ref: r.problemRef, at: Math.floor(r.acceptedAt.getTime() / 1000) });
-    byHandle.set(r.handle, list);
-  }
+  // Bring the stored data up to date first (within the budget), then read it once, so this press already shows what it just synced.
   const states = await syncStates(registered);
-
-  const scored: Scored[] = [];
   const pending: string[] = [];
+  const ready: string[] = [];
   for (const handle of registered) {
     let state: SyncState | undefined = states.get(handle.toLowerCase());
     const stale = !state || !state.backfilled || now.getTime() - state.syncedAt.getTime() >= FRESH_MS;
@@ -128,11 +115,23 @@ export async function groupLeaderboard(secret: string, chatId: string, period: P
         if (!(e instanceof CodeforcesError)) throw e;
       }
     }
-    if (!state?.backfilled) {
-      // Never read in full, so its numbers cannot be shown honestly yet.
-      pending.push(handle);
-      continue;
-    }
+    if (state?.backfilled) ready.push(handle);
+    else pending.push(handle); // never read in full, so its numbers cannot be shown honestly yet
+  }
+  const solveRows = ready.length
+    ? await db.cfSolve.findMany({
+        where: { handle: { in: ready.map((h) => h.toLowerCase()) }, acceptedAt: { gte: new Date(periodStart(period, now) * 1000) } },
+        select: { handle: true, problemRef: true, acceptedAt: true },
+      })
+    : [];
+  const byHandle = new Map<string, Accepted[]>();
+  for (const r of solveRows) {
+    const list = byHandle.get(r.handle) ?? [];
+    list.push({ ref: r.problemRef, at: Math.floor(r.acceptedAt.getTime() / 1000) });
+    byHandle.set(r.handle, list);
+  }
+  const scored: Scored[] = [];
+  for (const handle of ready) {
     let rating = await cachedRating(handle, now);
     if (rating === undefined && Date.now() < deadline) {
       try {

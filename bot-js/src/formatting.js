@@ -214,7 +214,7 @@ export function leaderboardHtml(data) {
   if (data.notRegistered.length) {
     lines.push(`📝 <b>Not registered (${data.notRegistered.length})</b>: ${data.notRegistered.slice(0, 30).map((h) => `<code>${esc(h)}</code>`).join(", ")}`);
   }
-  if (data.checking > 0) lines.push(`⏳ <b>${data.checking} student${data.checking === 1 ? " is" : "s are"} still being verified</b>. They join the table automatically.`);
+  if (data.checking > 0) lines.push(`⏳ <b>${data.checking} student${data.checking === 1 ? " is" : "s are"} still being verified</b>. Press 🔄 Refresh to update the table.`);
   lines.push("", "<i>Ranked by points: problems solved, plus consistency (days with a solve ÷ days in the period). Ties go to rating.</i>");
   lines.push(`<i>Updated ${esc(new Date(data.checkedAt).toISOString().slice(11, 19))} UTC · ${data.registered}/${data.rosterCount} registered</i>`);
   return lines.join("\n");

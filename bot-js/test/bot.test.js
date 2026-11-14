@@ -458,3 +458,11 @@ test("when Codeforces is down, /rating says so and does not blame the handle", a
   assert.doesNotMatch(h.sent[0].text, /can't find/);
 });
 
+test("the group Leaderboard button's loading message carries no keyboard, so it can be edited into the table", async () => {
+  const h = makeHarness();
+  await h.bot.handleUpdate(h.update({ text: "📊 Leaderboard", chatType: "group", chatId: -1009000000777 }));
+  const first = h.telegramCalls.find((c) => c.method === "sendMessage");
+  assert.equal(first.payload.reply_markup, undefined);
+  assert.match(h.telegramCalls.find((c) => c.method === "editMessageText").payload.text, /Group leaderboard/);
+});
+

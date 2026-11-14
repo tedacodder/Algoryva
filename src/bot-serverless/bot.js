@@ -269,6 +269,7 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
       if (/not modified/i.test(reason)) return; // nothing changed: fine
       if (/can't be edited|message to edit not found/i.test(reason)) {
         await bot.api.sendMessage(chat, html, { ...options, reply_markup: markup });
+        await bot.api.deleteMessage(chat, messageId).catch(() => undefined); // the result is now a new message, so the loading note goes
         return;
       }
       throw error;
@@ -407,7 +408,7 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
     next: (ctx) => act(ctx, nextAction(ctx), { menu: true }),
     help: (ctx) => replyHtml(ctx, F.helpIndexHtml(), { menu: true }),
     leaderboard: async (ctx) => {
-      const placeholder = await replyHtml(ctx, F.leaderboardCheckingHtml("week"), { menu: true });
+      const placeholder = await replyHtml(ctx, F.leaderboardCheckingHtml("week")); // no keyboard: Telegram cannot edit a message that has one
       return runLeaderboard(ctx.chat.id, placeholder.message_id, "week");
     },
   };
