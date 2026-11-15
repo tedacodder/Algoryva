@@ -6,8 +6,8 @@ import { toHtml } from "../src/render.js";
 const T1430 = Date.parse("2026-10-27T14:35:00Z") / 1000;
 
 test("local time is Ethiopian time (UTC+3), shown with the UTC time", () => {
-  assert.match(localStamp(T1430), /17:35 EAT$/);
-  assert.match(utcStamp(T1430), /14:35 UTC$/);
+  assert.match(localStamp(T1430), /5:35 PM EAT$/);
+  assert.match(utcStamp(T1430), /2:35 PM UTC$/);
 });
 
 test("time left and duration read naturally", () => {
@@ -25,7 +25,7 @@ test("contests are listed soonest first, each in its own quote", () => {
   assert.ok(html.indexOf("Sooner Round") < html.indexOf("Later Round"));
   assert.match(html, /<blockquote>/);
   assert.match(html, /Starts in <b>2h 35m<\/b>/);
-  assert.match(html, /17:35 EAT/);
+  assert.match(html, /5:35 PM EAT/);
 });
 
 test("the next contest warns inside the last two hours", () => {
@@ -243,3 +243,16 @@ test("the owner's statistics show the numbers, and a zero active count has no di
   assert.match(html, /Class members: <b>50<\/b> · queued checks: <b>4<\/b>/);
   assert.match(html, /Updated 2026-11-08 10:00 UTC/);
 });
+
+test("the rating is hidden behind a spoiler, like the tags, on problems", () => {
+  const html = problemHtml({ name: "Easy", rating: 1100, tags: ["greedy"], url: "https://codeforces.com/problemset/problem/1/A" }, { header: "Today" });
+  assert.match(html, /Rating <tg-spoiler>1100<\/tg-spoiler>/);
+  assert.match(html, /<tg-spoiler>#greedy<\/tg-spoiler>/);
+});
+
+test("contest times use a 12-hour clock with AM and PM", () => {
+  assert.doesNotMatch(localStamp(T1430), /\u202f/);
+  assert.match(localStamp(T1430), /PM EAT$/);
+  assert.match(utcStamp(T1430), /PM UTC$/);
+});
+
