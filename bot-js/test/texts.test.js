@@ -34,7 +34,7 @@ test("unknown website errors never show the raw code", () => {
 
 test("rendering escapes user text and bolds labels", () => {
   assert.ok(toHtml("<script>x</script>").includes("&lt;script&gt;"));
-  assert.ok(toHtml("⭐ Rating 1100").includes("<b>Rating</b> <code>1100</code>"));
+  assert.ok(toHtml("⭐ Rating 1100").includes("<b>Rating</b> <tg-spoiler>1100</tg-spoiler>"));
   assert.ok(toHtml("Title line\nbody").startsWith("<b>Title line</b>"));
 });
 

@@ -5,12 +5,15 @@ export const EAT_ZONE = "Africa/Addis_Ababa"; // Ethiopia does not use daylight 
 
 export const esc = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const DAY_EAT = new Intl.DateTimeFormat("en-GB", { timeZone: EAT_ZONE, weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
-const DAY_UTC = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+// 12-hour clock with AM and PM. Some runtimes put a narrow space before AM/PM, so it is replaced with a normal space.
+const TIME_12H = { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true };
+const DAY_EAT = new Intl.DateTimeFormat("en-US", { ...TIME_12H, timeZone: EAT_ZONE });
+const DAY_UTC = new Intl.DateTimeFormat("en-US", { ...TIME_12H, timeZone: "UTC" });
+const plainSpaces = (text) => text.replace(/[\u202f\u00a0]/g, " ");
 
 /** Local time first (Ethiopian time), for example "Sun 27 Oct, 17:35 EAT". */
-export const localStamp = (seconds) => `${DAY_EAT.format(new Date(seconds * 1000))} EAT`;
-export const utcStamp = (seconds) => `${DAY_UTC.format(new Date(seconds * 1000))} UTC`;
+export const localStamp = (seconds) => `${plainSpaces(DAY_EAT.format(new Date(seconds * 1000)))} EAT`;
+export const utcStamp = (seconds) => `${plainSpaces(DAY_UTC.format(new Date(seconds * 1000)))} UTC`;
 export const durationText = (seconds) => `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 
 /** Time until a start, for example "2h 25m", "3d 4h", or "already started". */
@@ -34,7 +37,7 @@ export function problemHtml(problem, { header, personalized = false } = {}) {
   const lines = [
     `<b>${esc(header)}</b>`,
     `<blockquote>${badge(problem.rating)} <b>${esc(problem.name)}</b>`,
-    `⭐ Rating <code>${problem.rating ?? "unrated"}</code>`,
+    `⭐ Rating <tg-spoiler>${problem.rating ?? "unrated"}</tg-spoiler>`,
     `🏷️ <tg-spoiler>${tags}</tg-spoiler> <i>tap to reveal</i>`,
     `🔗 ${esc(problem.url)}</blockquote>`,
   ];

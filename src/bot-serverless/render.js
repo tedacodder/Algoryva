@@ -15,7 +15,7 @@ export function toHtml(text) {
   });
   return out
     .join("\n")
-    .replace(/(<b>Rating<\/b> )(\S+)/g, "$1<code>$2</code>")
+    .replace(/(<b>Rating<\/b> )(\S+)/g, "$1<tg-spoiler>$2</tg-spoiler>")
     .replace(/^• (\S+) ·/gm, "• <code>$1</code> ·")
     .replace(/🏷️ ((?:#[^\s<]+ ?)+)/g, "🏷️ <tg-spoiler>$1</tg-spoiler>");
 }
