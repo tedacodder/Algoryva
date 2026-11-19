@@ -466,3 +466,19 @@ test("the group Leaderboard button's loading message carries no keyboard, so it 
   assert.match(h.telegramCalls.find((c) => c.method === "editMessageText").payload.text, /Group leaderboard/);
 });
 
+test("/next shows every contest that starts at the soonest time, and not a later one", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const soonest = now + 3600;
+  const contests = [
+    { id: 1, name: "Round (Div. 1)", startTimeSeconds: soonest, durationSeconds: 7200, url: "https://codeforces.com/contests/1" },
+    { id: 2, name: "Round (Div. 2)", startTimeSeconds: soonest, durationSeconds: 7200, url: "https://codeforces.com/contests/2" },
+    { id: 3, name: "Round (Div. 3)", startTimeSeconds: soonest, durationSeconds: 7200, url: "https://codeforces.com/contests/3" },
+    { id: 4, name: "Round (Div. 4)", startTimeSeconds: soonest, durationSeconds: 7200, url: "https://codeforces.com/contests/4" },
+    { id: 5, name: "Later Round (Div. 2)", startTimeSeconds: now + 86400, durationSeconds: 7200, url: "https://codeforces.com/contests/5" },
+  ];
+  const h = makeHarness({ siteOverrides: { contests: async () => ({ text: "x", contests }) } });
+  await h.bot.handleUpdate(h.update({ text: "/next" }));
+  for (const d of ["Div. 1", "Div. 2", "Div. 3", "Div. 4"]) assert.match(h.sent[0].text, new RegExp(d.replace(".", "\\.")));
+  assert.doesNotMatch(h.sent[0].text, /Later Round/);
+});
+

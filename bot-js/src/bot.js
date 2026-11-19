@@ -115,9 +115,11 @@ export function createBot({ token, site, botInfo, docsUrl = null }) {
 
   const nextAction = (ctx) => async () => {
     const data = await site.contests(chatId(ctx));
-    const first = byStart(data.contests ?? [])[0];
-    if (!first) return data.text ?? "📭 No upcoming Codeforces contests right now.";
-    return { html: F.nextContestHtml(first) };
+    const sorted = byStart(data.contests ?? []);
+    if (sorted.length === 0) return data.text ?? "📭 No upcoming Codeforces contests right now.";
+    // Every contest that starts at the soonest time, so a Div. 1, Div. 2, Div. 3 and Div. 4 round starting together are all shown.
+    const soonest = sorted[0].startTimeSeconds;
+    return { html: F.nextContestHtml(sorted.filter((c) => c.startTimeSeconds === soonest)) };
   };
 
   const connectAction = (ctx, arg) => async () => {
