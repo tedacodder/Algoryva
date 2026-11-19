@@ -256,3 +256,12 @@ test("contest times use a 12-hour clock with AM and PM", () => {
   assert.match(utcStamp(T1430), /PM UTC$/);
 });
 
+test("when several contests start together, the next card lists all of them", () => {
+  const now = new Date("2026-11-20T10:00:00Z");
+  const start = Math.floor(Date.parse("2026-11-20T12:00:00Z") / 1000);
+  const same = ["Div. 1", "Div. 2", "Div. 3", "Div. 4"].map((d, i) => ({ id: i + 1, name: `Codeforces Round (${d})`, startTimeSeconds: start, durationSeconds: 7200, url: `https://codeforces.com/contests/${i + 1}` }));
+  const html = nextContestHtml(same, now);
+  for (const d of ["Div. 1", "Div. 2", "Div. 3", "Div. 4"]) assert.ok(html.includes(d), d);
+  assert.match(html, /4 contests start together/);
+});
+

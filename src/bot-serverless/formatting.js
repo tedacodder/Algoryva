@@ -68,18 +68,22 @@ export function contestsHtml(contests, now = new Date()) {
 }
 
 /** The single next contest, with a warning inside the last two hours. */
-export function nextContestHtml(contest, now = new Date()) {
-  const soon = contest.startTimeSeconds * 1000 - now.getTime() <= 2 * 3600 * 1000;
-  return [
-    "⏰ <b>Next Codeforces contest</b>",
-    `<blockquote><b>🏆 ${esc(contest.name)}</b>`,
-    `🗓 ${localStamp(contest.startTimeSeconds)}`,
-    `🌍 ${utcStamp(contest.startTimeSeconds)}`,
-    `⏳ <b>${timeLeft(contest.startTimeSeconds, now)}</b> left · ⏱ ${durationText(contest.durationSeconds)}`,
-    `🔗 ${esc(contest.url)}</blockquote>`,
-    soon ? "🚨 <b>Less than two hours to go!</b>" : "",
-    "<i>Register on the official page. I can't register you.</i>",
-  ]
+/** The next contest, or every contest that starts at the same moment, so Div. 1, Div. 2, Div. 3 and Div. 4 rounds that start together are all shown. */
+export function nextContestHtml(contests, now = new Date()) {
+  const list = Array.isArray(contests) ? contests : [contests];
+  if (list.length === 0) return "📭 No upcoming Codeforces contests right now.";
+  const soon = list[0].startTimeSeconds * 1000 - now.getTime() <= 2 * 3600 * 1000;
+  const blocks = list.map((c) =>
+    [
+      `<blockquote><b>🏆 ${esc(c.name)}</b>`,
+      `🗓 ${localStamp(c.startTimeSeconds)}`,
+      `🌍 ${utcStamp(c.startTimeSeconds)}`,
+      `⏳ <b>${timeLeft(c.startTimeSeconds, now)}</b> left · ⏱ ${durationText(c.durationSeconds)}`,
+      `🔗 ${esc(c.url)}</blockquote>`,
+    ].join("\n"),
+  );
+  const head = list.length > 1 ? `⏰ <b>${list.length} contests start together</b>` : "⏰ <b>Next Codeforces contest</b>";
+  return [head, ...blocks, soon ? "🚨 <b>Less than two hours to go!</b>" : "", "<i>Register on the official page. I can't register you.</i>"]
     .filter(Boolean)
     .join("\n");
 }
